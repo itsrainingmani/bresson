@@ -1,0 +1,16 @@
+[package]
+name = "bresson"
+version = "0.1.0"
+authors = ["Mani Sundararajan"]
+edition = "2021"
+description = "EXIF Metadata Processing Tool"
+license = "MIT"
+keywords = ["exif", "metadata", "cli"]
+categories = ["command-line-utilities"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+indicatif = "0.17"
+color-eyre = { version = "0.6", default-features = false }
+bpaf = { version="0.9", features = ["derive"]}
