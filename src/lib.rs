@@ -29,7 +29,9 @@ impl ExifMetadata {
                 | Tag::DateTime
                 | Tag::ExposureTime
                 | Tag::FNumber
-                | Tag::FocalLength => {
+                | Tag::FocalLength
+                | Tag::GPSLatitude
+                | Tag::GPSLongitude => {
                     exif_data_rows.push(f.clone());
                 }
                 _ => {}
@@ -47,10 +49,13 @@ impl ExifMetadata {
     pub fn process_rows(&self) -> Vec<Row> {
         let mut exif_data_rows = Vec::new();
         for f in &self.exif_data {
-            exif_data_rows.push(Row::new(vec![
-                f.tag.to_string(),
-                f.display_value().with_unit(&self.exif).to_string(),
-            ]));
+            let f_val = f.tag.to_string();
+            if f_val.len() > 0 {
+                exif_data_rows.push(Row::new(vec![
+                    f.tag.to_string(),
+                    f.display_value().with_unit(&self.exif).to_string(),
+                ]));
+            }
         }
 
         exif_data_rows
