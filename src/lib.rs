@@ -1,3 +1,5 @@
+pub mod globe;
+
 use anyhow::Result;
 use exif::Tag;
 use ratatui::widgets::Row;

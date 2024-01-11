@@ -1,4 +1,5 @@
 use anyhow::Result;
+use bresson::globe::Globe;
 use bresson::*;
 use std::path::Path;
 
@@ -10,11 +11,8 @@ use crossterm::{
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     prelude::{CrosstermBackend, Stylize, Terminal},
-    style::{Color, Style},
-    widgets::{
-        canvas::{Canvas, Line, Map, MapResolution, Rectangle},
-        Block, Borders, Paragraph, Row, Table,
-    },
+    style::Style,
+    widgets::{canvas::*, Block, Borders, Paragraph, Row, Table},
 };
 use std::io::stdout;
 
@@ -34,10 +32,18 @@ fn main() -> Result<()> {
 
     let metadata = get_all_metadata(image_file)?;
 
+    let cam_zoom = 1.5;
+    let cam_xy = 0.;
+    let cam_z = 0.;
+    let mut globe = Globe::new(1., 0., false);
+    globe.camera.update(cam_zoom, cam_xy, cam_z);
+
     stdout().execute(EnterAlternateScreen)?;
     enable_raw_mode()?;
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     terminal.clear()?;
+
+    // let globe_rot_speed = 1. / 1000.;
 
     loop {
         terminal.draw(|frame| {
@@ -67,29 +73,24 @@ fn main() -> Result<()> {
             );
             frame.render_widget(
                 Canvas::default()
-                    .block(Block::default().title("Canvas").borders(Borders::ALL))
-                    .x_bounds([-180.0, 180.0])
-                    .y_bounds([-90.0, 90.0])
+                    .block(Block::default().title("Map").borders(Borders::ALL))
+                    .x_bounds([0., 100.])
+                    .y_bounds([0., 50.])
                     .paint(|ctx| {
-                        ctx.draw(&Map {
-                            resolution: MapResolution::High,
-                            color: Color::White,
-                        });
                         ctx.layer();
-                        ctx.draw(&Line {
-                            x1: 0.0,
-                            y1: 10.0,
-                            x2: 10.0,
-                            y2: 10.0,
-                            color: Color::White,
-                        });
-                        ctx.draw(&Rectangle {
-                            x: 10.0,
-                            y: 20.0,
-                            width: 10.0,
-                            height: 10.0,
-                            color: Color::Red,
-                        });
+                        let mut globe_canvas = globe::Canvas::new(400, 400, None);
+                        globe_canvas.clear();
+                        globe.render_sphere(&mut globe_canvas);
+                        let (size_x, size_y) = globe_canvas.get_size();
+                        // default character size is 4 by 8
+                        for i in 0..size_y / 8 {
+                            for j in 0..size_x / 4 {
+                                match globe_canvas.matrix[i][j] {
+                                    ' ' => ctx.print(j as f64, i as f64, " "),
+                                    x => ctx.print(j as f64, i as f64, x.to_string()),
+                                }
+                            }
+                        }
                     }),
                 layout[2],
             )
