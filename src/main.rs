@@ -2,19 +2,16 @@ use anyhow::Result;
 use bresson::globe::Globe;
 use bresson::*;
 use std::{f32::consts::PI, path::Path};
+use tui::restore_terminal;
 
-use crossterm::{
-    event::{self, KeyCode, KeyEventKind},
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    ExecutableCommand,
-};
+use crossterm::event::{self, KeyCode, KeyEventKind};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
-    prelude::{CrosstermBackend, Stylize, Terminal},
+    prelude::Stylize,
     style::Style,
     widgets::{canvas::*, Block, Borders, Paragraph, Row, Table},
+    Frame,
 };
-use std::io::stdout;
 
 fn main() -> Result<()> {
     let args = std::env::args();
@@ -38,70 +35,12 @@ fn main() -> Result<()> {
     // let metadata = get_all_metadata(image_file)?;
     let mut metadata = ExifMetadata::new(image_file, globe)?;
 
-    // cam_xy -= 1.0 / 2000.;
-    // globe.camera.update(cam_zoom, cam_xy, cam_z);
-
-    stdout().execute(EnterAlternateScreen)?;
-    enable_raw_mode()?;
-    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
+    tui::install_panic_hook();
+    let mut terminal = tui::init_terminal()?;
     terminal.clear()?;
 
-    // let globe_rot_speed = 1. / 1000.;
-
     loop {
-        metadata.update_globe_rotation();
-        terminal.draw(|frame| {
-            let layout = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints(vec![
-                    Constraint::Percentage(10),
-                    Constraint::Percentage(30),
-                    Constraint::Percentage(60),
-                ])
-                .split(frame.size());
-            frame.render_widget(
-                Paragraph::new("BRESSON")
-                    .block(Block::new().borders(Borders::ALL))
-                    .bold(),
-                layout[0],
-            );
-            // let area = frame.size();
-            let widths = [Constraint::Length(30), Constraint::Length(30)];
-            let exif_table = Table::new(metadata.process_rows(), widths);
-            frame.render_widget(
-                exif_table
-                    .block(Block::new().borders(Borders::ALL))
-                    .header(Row::new(vec!["Tag", "Data"]))
-                    .highlight_style(Style::new().light_cyan()),
-                layout[1],
-            );
-            frame.render_widget(
-                Canvas::default()
-                    .block(Block::default().title("Map").borders(Borders::ALL))
-                    .x_bounds([0., 100.])
-                    .y_bounds([0., 50.])
-                    .paint(|ctx| {
-                        ctx.layer();
-
-                        let mut globe_canvas = globe::Canvas::new(75, 50, Some((1, 1)));
-                        globe_canvas.clear();
-                        metadata.globe.render_sphere(&mut globe_canvas);
-                        let (size_x, size_y) = globe_canvas.get_size();
-                        // default character size is 4 by 8
-                        for i in 0..size_y {
-                            for j in 0..size_x {
-                                let translated_i = 50 - i;
-                                match globe_canvas.matrix[i][j] {
-                                    ' ' => ctx.print(j as f64, translated_i as f64, " "),
-                                    x => ctx.print(j as f64, translated_i as f64, x.to_string()),
-                                }
-                            }
-                        }
-                    }),
-                layout[2],
-            )
-        })?;
-
+        terminal.draw(|frame| view(&mut metadata, frame))?;
         if event::poll(std::time::Duration::from_millis(16))? {
             if let event::Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press && key.code == KeyCode::Char('q') {
@@ -109,12 +48,100 @@ fn main() -> Result<()> {
                 }
             }
         }
+
+        // Update the Globe Rotation
+        metadata.update_globe_rotation();
     }
 
-    stdout().execute(LeaveAlternateScreen)?;
-    disable_raw_mode()?;
+    restore_terminal()
+}
 
-    Ok(())
+fn view(metadata: &mut ExifMetadata, frame: &mut Frame) {
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(vec![
+            Constraint::Percentage(10),
+            Constraint::Percentage(30),
+            Constraint::Percentage(60),
+        ])
+        .split(frame.size());
+    frame.render_widget(
+        Paragraph::new("BRESSON")
+            .block(Block::new().borders(Borders::ALL))
+            .bold(),
+        layout[0],
+    );
+    // let area = frame.size();
+    let widths = [Constraint::Length(30), Constraint::Length(30)];
+    let exif_table = Table::new(metadata.process_rows(), widths);
+    frame.render_widget(
+        exif_table
+            .block(Block::new().borders(Borders::ALL))
+            .header(Row::new(vec!["Tag", "Data"]))
+            .highlight_style(Style::new().light_cyan()),
+        layout[1],
+    );
+    frame.render_widget(
+        Canvas::default()
+            .block(Block::default().title("Map").borders(Borders::ALL))
+            .x_bounds([0., 100.])
+            .y_bounds([0., 50.])
+            .paint(|ctx| {
+                ctx.layer();
+                let mut globe_canvas = globe::Canvas::new(75, 50, Some((1, 1)));
+                globe_canvas.clear();
+                metadata.globe.render_sphere(&mut globe_canvas);
+                let (size_x, size_y) = globe_canvas.get_size();
+                // default character size is 4 by 8
+                for i in 0..size_y {
+                    for j in 0..size_x {
+                        let translated_i = 50 - i;
+                        match globe_canvas.matrix[i][j] {
+                            ' ' => ctx.print(j as f64, translated_i as f64, " "),
+                            x => ctx.print(j as f64, translated_i as f64, x.to_string()),
+                        }
+                    }
+                }
+            }),
+        layout[2],
+    )
+}
+
+mod tui {
+    use anyhow::Result;
+    use crossterm::{
+        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+        ExecutableCommand,
+    };
+    use ratatui::{
+        backend::Backend,
+        prelude::{CrosstermBackend, Terminal},
+    };
+    use std::{io::stdout, panic};
+
+    // Have the terminal be generic over a backend
+    pub fn init_terminal() -> Result<Terminal<impl Backend>> {
+        enable_raw_mode()?;
+        stdout().execute(EnterAlternateScreen)?;
+        let terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
+        Ok(terminal)
+    }
+
+    pub fn install_panic_hook() {
+        let original_hook = panic::take_hook();
+        panic::set_hook(Box::new(move |panic_info| {
+            stdout().execute(LeaveAlternateScreen).unwrap();
+            disable_raw_mode().unwrap();
+            original_hook(panic_info);
+        }));
+    }
+
+    pub fn restore_terminal() -> Result<()> {
+        stdout().execute(LeaveAlternateScreen)?;
+        disable_raw_mode()?;
+
+        Ok(())
+    }
 }
 
 /// Orients the camera so that it focuses on the given target coordinates.
