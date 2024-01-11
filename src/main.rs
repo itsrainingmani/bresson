@@ -1,7 +1,7 @@
 use anyhow::Result;
 use bresson::globe::Globe;
 use bresson::*;
-use std::path::Path;
+use std::{f32::consts::PI, path::Path};
 
 use crossterm::{
     event::{self, KeyCode, KeyEventKind},
@@ -29,14 +29,17 @@ fn main() -> Result<()> {
         println!("Image not present");
         return Ok(());
     }
-
-    let metadata = get_all_metadata(image_file)?;
-
     let cam_zoom = 1.5;
     let cam_xy = 0.;
     let cam_z = 0.;
     let mut globe = Globe::new(1., 0., false);
     globe.camera.update(cam_zoom, cam_xy, cam_z);
+    // globe.angle += 1.1;
+    // let metadata = get_all_metadata(image_file)?;
+    let mut metadata = ExifMetadata::new(image_file, globe)?;
+
+    // cam_xy -= 1.0 / 2000.;
+    // globe.camera.update(cam_zoom, cam_xy, cam_z);
 
     stdout().execute(EnterAlternateScreen)?;
     enable_raw_mode()?;
@@ -46,6 +49,7 @@ fn main() -> Result<()> {
     // let globe_rot_speed = 1. / 1000.;
 
     loop {
+        metadata.update_globe_rotation();
         terminal.draw(|frame| {
             let layout = Layout::default()
                 .direction(Direction::Vertical)
@@ -63,7 +67,7 @@ fn main() -> Result<()> {
             );
             // let area = frame.size();
             let widths = [Constraint::Length(30), Constraint::Length(30)];
-            let exif_table = Table::new(metadata.clone(), widths);
+            let exif_table = Table::new(metadata.process_rows(), widths);
             frame.render_widget(
                 exif_table
                     .block(Block::new().borders(Borders::ALL))
@@ -78,16 +82,18 @@ fn main() -> Result<()> {
                     .y_bounds([0., 50.])
                     .paint(|ctx| {
                         ctx.layer();
-                        let mut globe_canvas = globe::Canvas::new(400, 400, None);
+
+                        let mut globe_canvas = globe::Canvas::new(75, 50, Some((1, 1)));
                         globe_canvas.clear();
-                        globe.render_sphere(&mut globe_canvas);
+                        metadata.globe.render_sphere(&mut globe_canvas);
                         let (size_x, size_y) = globe_canvas.get_size();
                         // default character size is 4 by 8
-                        for i in 0..size_y / 8 {
-                            for j in 0..size_x / 4 {
+                        for i in 0..size_y {
+                            for j in 0..size_x {
+                                let translated_i = 50 - i;
                                 match globe_canvas.matrix[i][j] {
-                                    ' ' => ctx.print(j as f64, i as f64, " "),
-                                    x => ctx.print(j as f64, i as f64, x.to_string()),
+                                    ' ' => ctx.print(j as f64, translated_i as f64, " "),
+                                    x => ctx.print(j as f64, translated_i as f64, x.to_string()),
                                 }
                             }
                         }
@@ -109,4 +115,11 @@ fn main() -> Result<()> {
     disable_raw_mode()?;
 
     Ok(())
+}
+
+/// Orients the camera so that it focuses on the given target coordinates.
+fn focus_target(coords: (f32, f32), xy_offset: f32, cam_xy: &mut f32, cam_z: &mut f32) {
+    let (cx, cy) = coords;
+    *cam_xy = (cx * PI) * -1. - 1.5 - xy_offset;
+    *cam_z = cy * 3. - 1.5;
 }
