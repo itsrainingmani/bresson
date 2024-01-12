@@ -6,9 +6,9 @@ use tui::restore_terminal;
 
 use crossterm::event::{self, KeyCode, KeyEventKind};
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
+    layout::{Alignment, Constraint, Direction, Layout},
     prelude::Stylize,
-    style::Style,
+    style::{Modifier, Style},
     widgets::{canvas::*, Block, Borders, Paragraph, Row, Table},
     Frame,
 };
@@ -60,30 +60,49 @@ fn view(metadata: &mut ExifMetadata, frame: &mut Frame) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![
-            Constraint::Percentage(10),
-            Constraint::Percentage(30),
+            Constraint::Percentage(15),
+            Constraint::Percentage(25),
             Constraint::Percentage(60),
         ])
         .split(frame.size());
     frame.render_widget(
-        Paragraph::new("BRESSON")
-            .block(Block::new().borders(Borders::ALL))
-            .bold(),
+        Paragraph::new(
+            r" ____  ____  _____ ____ ____   ___  _   _
+| __ )|  _ \| ____/ ___/ ___| / _ \| \ | |
+|  _ \| |_) |  _| \___ \___ \| | | |  \| |
+| |_) |  _ <| |___ ___) |__) | |_| | |\  |
+|____/|_| \_\_____|____/____/ \___/|_| \_|",
+        )
+        .alignment(Alignment::Center)
+        .block(Block::new().borders(Borders::ALL))
+        .bold(),
         layout[0],
     );
     // let area = frame.size();
     let widths = [Constraint::Length(30), Constraint::Length(30)];
-    let exif_table = Table::new(metadata.process_rows(), widths);
+    let exif_table = Table::new(metadata.process_rows(), widths).column_spacing(1);
     frame.render_widget(
         exif_table
-            .block(Block::new().borders(Borders::ALL))
-            .header(Row::new(vec!["Tag", "Data"]))
-            .highlight_style(Style::new().light_cyan()),
+            .block(
+                Block::new()
+                    .title("Metadata")
+                    .title_style(Style::new().bold())
+                    .borders(Borders::ALL),
+            )
+            .header(Row::new(vec!["Tag", "Data"]).bold())
+            // .style(Style::new().bold())
+            .highlight_style(Style::new().light_cyan().add_modifier(Modifier::BOLD))
+            .highlight_symbol(">>"),
         layout[1],
     );
     frame.render_widget(
         Canvas::default()
-            .block(Block::default().title("Map").borders(Borders::ALL))
+            .block(
+                Block::default()
+                    .title("Map")
+                    .title_style(Style::new().bold())
+                    .borders(Borders::ALL),
+            )
             .x_bounds([0., 100.])
             .y_bounds([0., 50.])
             .paint(|ctx| {
