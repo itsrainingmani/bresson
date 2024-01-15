@@ -1,7 +1,8 @@
 use crate::globe::Globe;
 use anyhow::Result;
+use chrono::prelude::*;
 use exif::{Exif, Field, In, Rational, Tag, Value};
-use rand::Rng;
+use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
 use ratatui::widgets::Row;
 use std::path::{Path, PathBuf};
 // Step one is taking a given image file and read out some of the super basic metadata about it
@@ -56,6 +57,20 @@ pub struct Model {
     pub has_gps: bool,
     pub gps_info: GPSInfo,
     pub camera_settings: CameraSettings,
+}
+
+pub fn random_datetime(rng: &mut ThreadRng) -> String {
+    let now_utc = Utc::now();
+    let date_utc = now_utc.date_naive();
+    format!(
+        "{}-{:02}-{:02} {:02}:{:02}:{:02}",
+        rng.gen_range(2001..=date_utc.year_ce().1),
+        rng.gen_range(1..=(date_utc.month0() + 1)),
+        rng.gen_range(1..=(date_utc.day0() + 1)),
+        rng.gen_range(0..=now_utc.hour()),
+        rng.gen_range(0..=now_utc.minute()),
+        rng.gen_range(0..=now_utc.second())
+    )
 }
 
 impl Model {
@@ -265,11 +280,17 @@ impl Model {
             "Lytro",
             "RED Digital Cinema",
         ];
+        let f_numbers = vec![1, 2, 3, 4, 5, 8, 11, 16, 22, 32, 45, 64];
 
         match self.randomized_fields.get_mut(index) {
             Some(f) => {
                 // println!("{:?}", f);
                 match f.tag {
+                    Tag::Make => {
+                        f.value = Value::Ascii(vec![Vec::from(
+                            *camera_manufacturers.choose(&mut rng).unwrap(),
+                        )]);
+                    }
                     Tag::ExposureTime => {
                         f.value = Value::Rational(vec![Rational {
                             num: 1,
@@ -278,11 +299,14 @@ impl Model {
                     }
                     Tag::FNumber => {
                         f.value = Value::Rational(vec![Rational {
-                            num: rand::random::<u8> as u32,
-                            denom: rand::random::<u8>() as u32,
+                            num: *f_numbers.choose(&mut rng).unwrap(),
+                            denom: rng.gen_range(1..=3),
                         }]);
                     }
-                    Tag::MeteringMode => f.value = Value::Short(vec![rng.gen_range(0..=6)]),
+                    Tag::MeteringMode => f.value = Value::Short(vec![rng.gen_range(1..=6)]),
+                    Tag::DateTimeOriginal => {
+                        f.value = Value::Ascii(vec![Vec::from(random_datetime(&mut rng))]);
+                    }
                     _ => {}
                 }
             }
