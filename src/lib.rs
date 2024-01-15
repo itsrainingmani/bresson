@@ -3,7 +3,7 @@ pub mod globe;
 use anyhow::Result;
 use exif::{Exif, Field, In, Tag, Value};
 use globe::Globe;
-use ratatui::{layout::Direction, widgets::Row};
+use ratatui::widgets::Row;
 use std::path::{Path, PathBuf};
 // Step one is taking a given image file and read out some of the super basic metadata about it
 
@@ -22,19 +22,19 @@ pub enum Cardinal {
 }
 
 pub struct GPSInfo {
-    Latitude: f32,
-    LatDirection: Cardinal,
-    Longitude: f32,
-    LongDirection: Cardinal,
+    latitude: f32,
+    lat_direction: Cardinal,
+    longitude: f32,
+    long_direction: Cardinal,
 }
 
 impl Default for GPSInfo {
     fn default() -> Self {
         Self {
-            Latitude: Default::default(),
-            LatDirection: Cardinal::North,
-            Longitude: Default::default(),
-            LongDirection: Cardinal::East,
+            latitude: Default::default(),
+            lat_direction: Cardinal::North,
+            longitude: Default::default(),
+            long_direction: Cardinal::East,
         }
     }
 }
@@ -132,10 +132,10 @@ impl Model {
                 None => Cardinal::East,
             };
             GPSInfo {
-                Latitude: lat,
-                LatDirection: lat_dir,
-                Longitude: long,
-                LongDirection: long_dir,
+                latitude: lat,
+                lat_direction: lat_dir,
+                longitude: long,
+                long_direction: long_dir,
             }
         } else {
             GPSInfo::default()
@@ -179,14 +179,14 @@ impl Model {
         // Latitude is a -90 -> 90 spread
         // Longitude is a -180 -> 180 spread
 
-        let new_longitude = match self.gps_info.LongDirection {
-            Cardinal::East => self.gps_info.Longitude,
-            Cardinal::West => 360. - self.gps_info.Longitude, // Convert into Long East
+        let new_longitude = match self.gps_info.long_direction {
+            Cardinal::East => self.gps_info.longitude,
+            Cardinal::West => 360. - self.gps_info.longitude, // Convert into Long East
             _ => 0.0,
         } / 360.;
-        let new_latitude = match self.gps_info.LatDirection {
-            Cardinal::North => self.gps_info.Latitude / 90.,
-            Cardinal::South => -self.gps_info.Latitude / 90.,
+        let new_latitude = match self.gps_info.lat_direction {
+            Cardinal::North => self.gps_info.latitude / 90.,
+            Cardinal::South => -self.gps_info.latitude / 90.,
             _ => 0.,
         };
 

@@ -67,6 +67,7 @@ fn main() -> Result<()> {
             terminal.clear()?;
 
             if metadata.has_gps {
+                // Go to the coordinates extracted from the input
                 metadata.transform_coordinates();
             }
 
