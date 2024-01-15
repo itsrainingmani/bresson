@@ -1,5 +1,5 @@
 use anyhow::Result;
-use bresson::*;
+use bresson::state::*;
 use globe::{CameraConfig, GlobeConfig, GlobeTemplate};
 use std::path::Path;
 use tui::restore_terminal;
@@ -82,10 +82,20 @@ fn main() -> Result<()> {
                                 KeyCode::Char(c) => match c {
                                     'o' | 'O' => {
                                         // Show Original Data
+                                        metadata.randomized_fields =
+                                            metadata.original_fields.clone();
                                     }
                                     'q' => break,
                                     'r' => {
                                         // Only randomize the selected element based on table state
+                                        match table_state.selected() {
+                                            Some(index) => metadata.randomize(index),
+                                            None => {}
+                                        }
+                                    }
+                                    'R' => {
+                                        // Randomize all fields (generalize over the individual field)
+                                        metadata.randomize_all()
                                     }
                                     '+' => metadata.camera_zoom_increase(),
                                     '-' => metadata.camera_zoom_decrease(),
