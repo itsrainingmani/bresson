@@ -7,8 +7,9 @@ use tui::restore_terminal;
 use crossterm::event::{self, KeyCode, KeyEventKind};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
-    prelude::Stylize,
+    prelude::*,
     style::{Color, Modifier, Style},
+    symbols,
     widgets::{canvas::*, Block, Borders, Row, Table, TableState},
     Frame,
 };
@@ -168,7 +169,8 @@ fn view(metadata: &mut Model, frame: &mut Frame, table_state: &mut TableState) {
                 Block::new()
                     .title("Metadata")
                     .title_style(Style::new().bold())
-                    .borders(Borders::ALL),
+                    .border_set(symbols::border::PLAIN)
+                    .borders(Borders::TOP | Borders::RIGHT | Borders::LEFT),
             )
             .header(Row::new(vec!["Tag", "Data"]).bold())
             // .style(Style::new().bold())
@@ -182,12 +184,20 @@ fn view(metadata: &mut Model, frame: &mut Frame, table_state: &mut TableState) {
         layout[0],
         table_state,
     );
+
+    let collapsed_top_border_set = symbols::border::Set {
+        top_left: symbols::line::NORMAL.vertical_right,
+        top_right: symbols::line::NORMAL.vertical_left,
+        // bottom_left: symbols::line::NORMAL.horizontal_up,
+        ..symbols::border::PLAIN
+    };
     frame.render_widget(
         Canvas::default()
             .block(
                 Block::default()
                     .title("Image Location")
                     .title_style(Style::new().bold())
+                    .border_set(collapsed_top_border_set)
                     .borders(Borders::ALL),
             )
             .x_bounds([0., 100.])
