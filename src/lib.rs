@@ -3,6 +3,7 @@ pub mod globe;
 use anyhow::Result;
 use exif::{Exif, Field, In, Tag, Value};
 use globe::Globe;
+use rand::seq::SliceRandom;
 use ratatui::widgets::Row;
 use std::path::{Path, PathBuf};
 // Step one is taking a given image file and read out some of the super basic metadata about it
@@ -49,8 +50,9 @@ pub type ExifTags = Vec<Field>;
 
 pub struct Model {
     pub path_to_image: PathBuf,
-    pub exif_data: ExifTags,
     pub exif: Exif,
+    pub original_fields: ExifTags,
+    pub randomized_fields: ExifTags,
     pub globe: Globe,
     pub app_mode: ApplicationMode,
     pub has_gps: bool,
@@ -87,7 +89,6 @@ impl Model {
                 }
                 Tag::GPSLatitude | Tag::GPSLongitude => {
                     has_gps = true;
-                    exif_data_rows.push(f.clone());
                 }
                 _ => {}
             }
@@ -152,8 +153,9 @@ impl Model {
 
         Ok(Self {
             path_to_image: path_to_image.to_path_buf(),
-            exif_data: exif_data_rows,
             exif,
+            original_fields: exif_data_rows.clone(),
+            randomized_fields: exif_data_rows.clone(),
             globe: g,
             app_mode,
             has_gps,
@@ -168,7 +170,7 @@ impl Model {
 
     pub fn process_rows(&self) -> Vec<Row> {
         let mut exif_data_rows = Vec::new();
-        for f in &self.exif_data {
+        for f in &self.randomized_fields {
             let f_val = f.tag.to_string();
             if f_val.len() > 0 {
                 exif_data_rows.push(Row::new(vec![
@@ -234,36 +236,58 @@ impl Model {
         self.globe.camera.update(1.45, new_longitude, new_latitude);
     }
 
-    pub fn randomize(&self) -> ExifTags {
+    pub fn randomize(&mut self) {
+        let mut rng = rand::thread_rng();
         let mut random_data: ExifTags = Vec::new();
+        let camera_manufacturers = vec![
+            "Canon",
+            "Nikon",
+            "Sony",
+            "Fujifilm",
+            "Panasonic",
+            "Olympus",
+            "Leica",
+            "Pentax",
+            "Samsung",
+            "GoPro",
+            "Hasselblad",
+            "DJI",
+            "Phase One",
+            "Ricoh",
+            "Sigma",
+            "Hoya",
+            "Kodak",
+            "YI Technology",
+            "Lytro",
+            "RED Digital Cinema",
+        ];
 
-        for f in &self.exif_data {
+        for f in &self.randomized_fields {
             match f.tag {
-                Tag::Make
-                | Tag::Model
-                | Tag::DateTime
-                | Tag::XResolution
-                | Tag::YResolution
+                Tag::Make => {
+                    let rand_make = *camera_manufacturers.choose(&mut rng).unwrap();
+                    random_data.push(Field { tag: Tag(exif::Context::Tiff, 271), ifd_num: In(0), value: Value::Ascii(vec![Vec::from(rand_make)]) });
+                }
+                Tag::Model
+                // | Tag::DateTime
+                // | Tag::XResolution
+                // | Tag::YResolution
                 | Tag::Software
                 | Tag::DateTimeOriginal
-                | Tag::Artist
-                | Tag::Copyright
+                // | Tag::Artist
+                // | Tag::Copyright
                 | Tag::ExposureTime
                 | Tag::FNumber
-                | Tag::FocalLength
+                // | Tag::FocalLength
                 | Tag::ISOSpeed
-                | Tag::MeteringMode
-                | Tag::GPSLatitude
-                | Tag::GPSLongitude
-                | Tag::GPSLatitudeRef
-                | Tag::GPSLongitudeRef => {
+                | Tag::MeteringMode => {
                     random_data.push(f.clone());
                 }
                 _ => {}
             }
         }
 
-        random_data
+        self.randomized_fields = random_data;
     }
 }
 

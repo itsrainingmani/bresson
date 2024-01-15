@@ -8,8 +8,8 @@ use crossterm::event::{self, KeyCode, KeyEventKind};
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     prelude::Stylize,
-    style::{Modifier, Style},
-    widgets::{canvas::*, Block, Borders, Paragraph, Row, Table},
+    style::{Color, Modifier, Style},
+    widgets::{canvas::*, Block, Borders, Paragraph, Row, Table, TableState},
     Frame,
 };
 
@@ -45,12 +45,13 @@ fn main() -> Result<()> {
     globe.camera.update(cam_zoom, cam_xy, cam_z);
     // globe.angle += 1.1;
     let mut metadata = Model::new(image_file, globe, app_mode)?;
+    let mut table_state = TableState::new().with_selected(Some(0));
 
     match app_mode {
         ApplicationMode::CommandLine => {
             // Print out the Exif Data in the CLI
             println!("Tag - Original | Randomized");
-            for f in &metadata.exif_data {
+            for f in &metadata.original_fields {
                 println!(
                     "{} {}",
                     f.tag,
@@ -73,21 +74,48 @@ fn main() -> Result<()> {
             }
 
             loop {
-                terminal.draw(|frame| view(&mut metadata, frame))?;
+                terminal.draw(|frame| view(&mut metadata, frame, &mut table_state))?;
                 if event::poll(std::time::Duration::from_millis(16))? {
                     if let event::Event::Key(key) = event::read()? {
                         if key.kind == KeyEventKind::Press {
                             match key.code {
                                 KeyCode::Char(c) => match c {
+                                    'o' | 'O' => {
+                                        // Show Original Data
+                                    }
                                     'q' => break,
                                     'r' => {
-                                        // Randomize
+                                        // Only randomize the selected element based on table state
                                     }
                                     '+' => metadata.camera_zoom_increase(),
                                     '-' => metadata.camera_zoom_decrease(),
                                     _ => {}
                                 },
                                 KeyCode::Esc => break,
+                                KeyCode::Down => match table_state.selected() {
+                                    Some(i) => {
+                                        if i == metadata.randomized_fields.len() - 1 {
+                                            *table_state.selected_mut() = Some(0)
+                                        } else {
+                                            *table_state.selected_mut() = Some(i + 1)
+                                        }
+                                    }
+                                    None => *table_state.selected_mut() = Some(0),
+                                },
+                                KeyCode::Up => match table_state.selected() {
+                                    Some(i) => {
+                                        if i == 0 {
+                                            *table_state.selected_mut() =
+                                                Some(metadata.randomized_fields.len() - 1)
+                                        } else {
+                                            *table_state.selected_mut() = Some(i - 1)
+                                        }
+                                    }
+                                    None => {
+                                        *table_state.selected_mut() =
+                                            Some(metadata.randomized_fields.len() - 1)
+                                    }
+                                },
                                 _ => {}
                             }
                         }
@@ -99,32 +127,32 @@ fn main() -> Result<()> {
     }
 }
 
-fn view(metadata: &mut Model, frame: &mut Frame) {
+fn view(metadata: &mut Model, frame: &mut Frame, table_state: &mut TableState) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![
-            Constraint::Percentage(15),
-            Constraint::Percentage(25),
+            // Constraint::Percentage(15),
+            Constraint::Percentage(40),
             Constraint::Percentage(60),
         ])
         .split(frame.size());
-    frame.render_widget(
-        Paragraph::new(
-            r"____  ____  _____ ____ ____   ___  _   _
-| __ )|  _ \| ____/ ___/ ___| / _ \| \ | |
-|  _ \| |_) |  _| \___ \___ \| | | |  \| |
-| |_) |  _ <| |___ ___) |__) | |_| | |\  |
-|____/|_| \_\_____|____/____/ \___/|_| \_|",
-        )
-        .alignment(Alignment::Center)
-        .block(Block::new().borders(Borders::ALL))
-        .bold(),
-        layout[0],
-    );
+    //     frame.render_widget(
+    //         Paragraph::new(
+    //             r"____  ____  _____ ____ ____   ___  _   _
+    // | __ )|  _ \| ____/ ___/ ___| / _ \| \ | |
+    // |  _ \| |_) |  _| \___ \___ \| | | |  \| |
+    // | |_) |  _ <| |___ ___) |__) | |_| | |\  |
+    // |____/|_| \_\_____|____/____/ \___/|_| \_|",
+    //         )
+    //         .alignment(Alignment::Center)
+    //         .block(Block::new().borders(Borders::ALL))
+    //         .bold(),
+    //         layout[0],
+    //     );
     // let area = frame.size();
     let widths = [Constraint::Length(30), Constraint::Length(30)];
     let exif_table = Table::new(metadata.process_rows(), widths).column_spacing(1);
-    frame.render_widget(
+    frame.render_stateful_widget(
         exif_table
             .block(
                 Block::new()
@@ -134,9 +162,15 @@ fn view(metadata: &mut Model, frame: &mut Frame) {
             )
             .header(Row::new(vec!["Tag", "Data"]).bold())
             // .style(Style::new().bold())
-            .highlight_style(Style::new().light_cyan().add_modifier(Modifier::BOLD))
-            .highlight_symbol(">>"),
-        layout[1],
+            .highlight_style(
+                Style::new()
+                    .cyan()
+                    .add_modifier(Modifier::BOLD)
+                    .bg(Color::DarkGray),
+            )
+            .highlight_symbol("> "),
+        layout[0],
+        table_state,
     );
     frame.render_widget(
         Canvas::default()
@@ -163,19 +197,20 @@ fn view(metadata: &mut Model, frame: &mut Frame) {
 
                             x => {
                                 // Only useful when there is no z-axis panning going on
-                                let long_lat_color =
-                                    if i == (size_y / 2) - 1 && j == (size_x / 2) - 1 {
-                                        x.to_string().red().bold().slow_blink()
-                                    } else {
-                                        x.to_string().into()
-                                    };
-                                ctx.print(j as f64, translated_i as f64, long_lat_color)
+                                // let long_lat_color =
+                                //     if i == (size_y / 2) - 1 && j == (size_x / 2) - 1 {
+                                //         x.to_string().red().bold().slow_blink()
+                                //     } else {
+                                //         x.to_string().into()
+                                //     };
+                                // ctx.print(j as f64, translated_i as f64, long_lat_color)
+                                ctx.print(j as f64, translated_i as f64, x.to_string())
                             }
                         }
                     }
                 }
             }),
-        layout[2],
+        layout[1],
     )
 }
 
