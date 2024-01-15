@@ -1,9 +1,8 @@
 use anyhow::Result;
 use bresson::*;
-use color_eyre::owo_colors::OwoColorize;
 use exif::Tag;
 use globe::{CameraConfig, GlobeConfig, GlobeTemplate};
-use std::{f32::consts::PI, path::Path};
+use std::path::Path;
 use tui::restore_terminal;
 
 use crossterm::event::{self, KeyCode, KeyEventKind};
@@ -41,14 +40,9 @@ fn main() -> Result<()> {
         return Ok(());
     }
     let cam_zoom = 1.5;
-    let mut cam_xy = 0.;
-    let mut cam_z = 0.;
-    // let init_coords = (0.7944, 0.4523);
-    // focus_target(init_coords, 0., &mut cam_xy, &mut cam_z);
-    // cam_z += 0.5;
     let globe = GlobeConfig::new()
         .use_template(GlobeTemplate::Earth)
-        .with_camera(CameraConfig::new(cam_zoom, cam_xy, cam_z))
+        .with_camera(CameraConfig::new(cam_zoom, 0., 0.))
         // .display_night(true)
         .build();
     let mut metadata = Model::new(image_file, globe, app_mode)?;
@@ -73,6 +67,7 @@ fn main() -> Result<()> {
             terminal.clear()?;
 
             if metadata.has_gps {
+                // Go to the coordinates extracted from the input
                 metadata.transform_coordinates();
             }
 
