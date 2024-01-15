@@ -28,6 +28,12 @@ pub struct GPSInfo {
     long_direction: Cardinal,
 }
 
+pub struct CameraSettings {
+    zoom: f32,
+    alpha: f32, // Rotation along xy-axis
+    beta: f32,  // Rotation along z-axis
+}
+
 impl Default for GPSInfo {
     fn default() -> Self {
         Self {
@@ -49,6 +55,7 @@ pub struct Model {
     pub app_mode: ApplicationMode,
     pub has_gps: bool,
     pub gps_info: GPSInfo,
+    pub camera_settings: CameraSettings,
 }
 
 impl Model {
@@ -92,6 +99,7 @@ impl Model {
                     Value::Rational(ref v) if !v.is_empty() => {
                         (v[0].num as f32 / v[0].denom as f32)
                             + (v[1].num as f32 / v[1].denom as f32) / 60.
+                            + (v[2].num as f32 / v[2].denom as f32) / (60. * 100.)
                     }
                     _ => 0.,
                 },
@@ -102,6 +110,7 @@ impl Model {
                     Value::Rational(ref v) if !v.is_empty() => {
                         (v[0].num as f32 / v[0].denom as f32)
                             + (v[1].num as f32 / v[1].denom as f32) / 60.
+                            + (v[2].num as f32 / v[2].denom as f32) / (60. * 100.)
                     }
                     _ => 0.,
                 },
@@ -149,6 +158,11 @@ impl Model {
             app_mode,
             has_gps,
             gps_info,
+            camera_settings: CameraSettings {
+                zoom: 1.5,
+                alpha: 0.,
+                beta: 0.,
+            },
         })
     }
 
@@ -159,7 +173,11 @@ impl Model {
             if f_val.len() > 0 {
                 exif_data_rows.push(Row::new(vec![
                     f.tag.to_string(),
-                    f.display_value().with_unit(&self.exif).to_string(),
+                    f.display_value()
+                        .with_unit(&self.exif)
+                        .to_string()
+                        .trim_matches('"')
+                        .to_string(),
                 ]));
             }
         }
@@ -169,6 +187,24 @@ impl Model {
 
     pub fn update_globe_rotation(&mut self) {
         self.globe.angle += 0.01;
+    }
+
+    pub fn camera_zoom_increase(&mut self) {
+        self.camera_settings.zoom -= 0.01;
+        self.globe.camera.update(
+            self.camera_settings.zoom,
+            self.camera_settings.alpha,
+            self.camera_settings.beta,
+        );
+    }
+
+    pub fn camera_zoom_decrease(&mut self) {
+        self.camera_settings.zoom += 0.01;
+        self.globe.camera.update(
+            self.camera_settings.zoom,
+            self.camera_settings.alpha,
+            self.camera_settings.beta,
+        );
     }
 
     pub fn transform_coordinates(&mut self) {
@@ -189,8 +225,13 @@ impl Model {
             Cardinal::South => -self.gps_info.latitude / 90.,
             _ => 0.,
         };
+        self.camera_settings = CameraSettings {
+            zoom: 1.45,
+            alpha: new_longitude,
+            beta: new_latitude,
+        };
 
-        self.globe.camera.update(1.5, new_longitude, new_latitude);
+        self.globe.camera.update(1.45, new_longitude, new_latitude);
     }
 
     pub fn randomize(&self) -> ExifTags {

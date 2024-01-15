@@ -1,7 +1,6 @@
 use anyhow::Result;
 use bresson::globe::Globe;
 use bresson::*;
-use exif::Tag;
 use std::path::Path;
 use tui::restore_terminal;
 
@@ -34,7 +33,7 @@ fn main() -> Result<()> {
 
     let image_file = Path::new(&image_arg);
     if image_file.is_file() {
-        println!("Image: {}", image_file.display());
+        println!("Image: {}\n", image_file.display());
     } else {
         println!("Image not present");
         return Ok(());
@@ -50,14 +49,16 @@ fn main() -> Result<()> {
     match app_mode {
         ApplicationMode::CommandLine => {
             // Print out the Exif Data in the CLI
-            println!("Tag - Original | Randomized\n");
+            println!("Tag - Original | Randomized");
             for f in &metadata.exif_data {
-                match f.tag {
-                    Tag::GPSLatitude | Tag::GPSLongitude => {
-                        println!("{} {:?}", f.tag, f.value)
-                    }
-                    _ => println!("{} {}", f.tag, f.display_value().with_unit(&metadata.exif)),
-                }
+                println!(
+                    "{} {}",
+                    f.tag,
+                    f.display_value()
+                        .with_unit(&metadata.exif)
+                        .to_string()
+                        .trim_matches('"')
+                )
             }
             Ok(())
         }
@@ -75,14 +76,23 @@ fn main() -> Result<()> {
                 terminal.draw(|frame| view(&mut metadata, frame))?;
                 if event::poll(std::time::Duration::from_millis(16))? {
                     if let event::Event::Key(key) = event::read()? {
-                        if key.kind == KeyEventKind::Press && key.code == KeyCode::Char('q') {
-                            break;
+                        if key.kind == KeyEventKind::Press {
+                            match key.code {
+                                KeyCode::Char(c) => match c {
+                                    'q' => break,
+                                    'r' => {
+                                        // Randomize
+                                    }
+                                    '+' => metadata.camera_zoom_increase(),
+                                    '-' => metadata.camera_zoom_decrease(),
+                                    _ => {}
+                                },
+                                KeyCode::Esc => break,
+                                _ => {}
+                            }
                         }
                     }
                 }
-
-                // Update the Globe Rotation
-                // metadata.update_globe_rotation();
             }
             restore_terminal()
         }
@@ -132,7 +142,7 @@ fn view(metadata: &mut Model, frame: &mut Frame) {
         Canvas::default()
             .block(
                 Block::default()
-                    .title("Map")
+                    .title("Image Location")
                     .title_style(Style::new().bold())
                     .borders(Borders::ALL),
             )
@@ -153,14 +163,13 @@ fn view(metadata: &mut Model, frame: &mut Frame) {
 
                             x => {
                                 // Only useful when there is no z-axis panning going on
-                                // let long_lat_color = if i == (size_y / 2) - 1 && x == '.' {
-                                //     x.to_string().green().bold()
-                                // } else if j == (size_x / 2) - 1 {
-                                //     x.to_string().red().bold()
-                                // } else {
-                                //     x.to_string().into()
-                                // };
-                                ctx.print(j as f64, translated_i as f64, x.to_string())
+                                let long_lat_color =
+                                    if i == (size_y / 2) - 1 && j == (size_x / 2) - 1 {
+                                        x.to_string().red().bold().slow_blink()
+                                    } else {
+                                        x.to_string().into()
+                                    };
+                                ctx.print(j as f64, translated_i as f64, long_lat_color)
                             }
                         }
                     }
