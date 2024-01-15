@@ -1,15 +1,16 @@
 use anyhow::Result;
 use bresson::globe::Globe;
 use bresson::*;
+use state::ApplicationMode;
 use std::path::Path;
 use tui::restore_terminal;
 
 use crossterm::event::{self, KeyCode, KeyEventKind};
 use ratatui::{
-    layout::{Alignment, Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout},
     prelude::Stylize,
     style::{Color, Modifier, Style},
-    widgets::{canvas::*, Block, Borders, Paragraph, Row, Table, TableState},
+    widgets::{canvas::*, Block, Borders, Row, Table, TableState},
     Frame,
 };
 
