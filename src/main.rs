@@ -1,7 +1,8 @@
 use anyhow::Result;
 use bresson::globe::Globe;
 use bresson::*;
-use std::{f32::consts::PI, path::Path};
+use exif::Tag;
+use std::path::Path;
 use tui::restore_terminal;
 
 use crossterm::event::{self, KeyCode, KeyEventKind};
@@ -14,11 +15,23 @@ use ratatui::{
 };
 
 fn main() -> Result<()> {
-    let args = std::env::args();
-    if args.len() < 2 {
+    if std::env::args().len() < 2 {
         std::process::exit(1);
     }
     let image_arg = std::env::args().nth(1).unwrap();
+
+    // CLI Mode
+    let app_mode = match std::env::args().nth(2) {
+        Some(second) => {
+            if second.eq("-c") {
+                ApplicationMode::CommandLine
+            } else {
+                ApplicationMode::Interactive
+            }
+        }
+        None => ApplicationMode::Interactive,
+    };
+
     let image_file = Path::new(&image_arg);
     if image_file.is_file() {
         println!("Image: {}", image_file.display());
@@ -32,31 +45,50 @@ fn main() -> Result<()> {
     let mut globe = Globe::new(1., 0., false);
     globe.camera.update(cam_zoom, cam_xy, cam_z);
     // globe.angle += 1.1;
-    // let metadata = get_all_metadata(image_file)?;
-    let mut metadata = ExifMetadata::new(image_file, globe)?;
+    let mut metadata = Model::new(image_file, globe, app_mode)?;
 
-    tui::install_panic_hook();
-    let mut terminal = tui::init_terminal()?;
-    terminal.clear()?;
-
-    loop {
-        terminal.draw(|frame| view(&mut metadata, frame))?;
-        if event::poll(std::time::Duration::from_millis(16))? {
-            if let event::Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press && key.code == KeyCode::Char('q') {
-                    break;
+    match app_mode {
+        ApplicationMode::CommandLine => {
+            // Print out the Exif Data in the CLI
+            println!("Tag - Original | Randomized\n");
+            for f in &metadata.exif_data {
+                match f.tag {
+                    Tag::GPSLatitude | Tag::GPSLongitude => {
+                        println!("{} {:?}", f.tag, f.value)
+                    }
+                    _ => println!("{} {}", f.tag, f.display_value().with_unit(&metadata.exif)),
                 }
             }
+            Ok(())
         }
+        ApplicationMode::Interactive => {
+            tui::install_panic_hook();
+            let mut terminal = tui::init_terminal()?;
+            terminal.clear()?;
 
-        // Update the Globe Rotation
-        metadata.update_globe_rotation();
+            if metadata.has_gps {
+                metadata.transform_coordinates();
+            }
+
+            loop {
+                terminal.draw(|frame| view(&mut metadata, frame))?;
+                if event::poll(std::time::Duration::from_millis(16))? {
+                    if let event::Event::Key(key) = event::read()? {
+                        if key.kind == KeyEventKind::Press && key.code == KeyCode::Char('q') {
+                            break;
+                        }
+                    }
+                }
+
+                // Update the Globe Rotation
+                // metadata.update_globe_rotation();
+            }
+            restore_terminal()
+        }
     }
-
-    restore_terminal()
 }
 
-fn view(metadata: &mut ExifMetadata, frame: &mut Frame) {
+fn view(metadata: &mut Model, frame: &mut Frame) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![
@@ -67,7 +99,7 @@ fn view(metadata: &mut ExifMetadata, frame: &mut Frame) {
         .split(frame.size());
     frame.render_widget(
         Paragraph::new(
-            r" ____  ____  _____ ____ ____   ___  _   _
+            r"____  ____  _____ ____ ____   ___  _   _
 | __ )|  _ \| ____/ ___/ ___| / _ \| \ | |
 |  _ \| |_) |  _| \___ \___ \| | | |  \| |
 | |_) |  _ <| |___ ___) |__) | |_| | |\  |
@@ -117,7 +149,18 @@ fn view(metadata: &mut ExifMetadata, frame: &mut Frame) {
                         let translated_i = 50 - i;
                         match globe_canvas.matrix[i][j] {
                             ' ' => ctx.print(j as f64, translated_i as f64, " "),
-                            x => ctx.print(j as f64, translated_i as f64, x.to_string()),
+
+                            x => {
+                                // Only useful when there is no z-axis panning going on
+                                // let long_lat_color = if i == (size_y / 2) - 1 && x == '.' {
+                                //     x.to_string().green().bold()
+                                // } else if j == (size_x / 2) - 1 {
+                                //     x.to_string().red().bold()
+                                // } else {
+                                //     x.to_string().into()
+                                // };
+                                ctx.print(j as f64, translated_i as f64, x.to_string())
+                            }
                         }
                     }
                 }
@@ -163,9 +206,9 @@ mod tui {
     }
 }
 
-/// Orients the camera so that it focuses on the given target coordinates.
-fn focus_target(coords: (f32, f32), xy_offset: f32, cam_xy: &mut f32, cam_z: &mut f32) {
-    let (cx, cy) = coords;
-    *cam_xy = (cx * PI) * -1. - 1.5 - xy_offset;
-    *cam_z = cy * 3. - 1.5;
-}
+// Orients the camera so that it focuses on the given target coordinates.
+// fn focus_target(coords: (f32, f32), xy_offset: f32, cam_xy: &mut f32, cam_z: &mut f32) {
+//     let (cx, cy) = coords;
+//     *cam_xy = (cx * PI) * -1. - 1.5 - xy_offset;
+//     *cam_z = cy * 3. - 1.5;
+// }
