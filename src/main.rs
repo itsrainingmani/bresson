@@ -132,6 +132,10 @@ fn main() -> Result<()> {
                         }
                     }
                 }
+
+                if !metadata.has_gps {
+                    metadata.rotate_globe();
+                }
             }
             restore_terminal()
         }
@@ -161,7 +165,7 @@ fn view(metadata: &mut Model, frame: &mut Frame, table_state: &mut TableState) {
     //         layout[0],
     //     );
     // let area = frame.size();
-    let widths = [Constraint::Length(30), Constraint::Length(30)];
+    let widths = [Constraint::Length(30), Constraint::Length(70)];
     let exif_table = Table::new(metadata.process_rows(), widths).column_spacing(1);
     frame.render_stateful_widget(
         exif_table
@@ -217,14 +221,14 @@ fn view(metadata: &mut Model, frame: &mut Frame, table_state: &mut TableState) {
 
                             x => {
                                 // Only useful when there is no z-axis panning going on
-                                // let long_lat_color =
-                                //     if i == (size_y / 2) - 1 && j == (size_x / 2) - 1 {
-                                //         x.to_string().red().bold().slow_blink()
-                                //     } else {
-                                //         x.to_string().into()
-                                //     };
-                                // ctx.print(j as f64, translated_i as f64, long_lat_color)
-                                ctx.print(j as f64, translated_i as f64, x.to_string())
+                                let long_lat_color =
+                                    if i == (size_y / 2) - 1 && j == (size_x / 2) - 1 {
+                                        x.to_string().red().bold().slow_blink()
+                                    } else {
+                                        x.to_string().into()
+                                    };
+                                ctx.print(j as f64, translated_i as f64, long_lat_color)
+                                // ctx.print(j as f64, translated_i as f64, x.to_string())
                             }
                         }
                     }
