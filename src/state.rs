@@ -86,17 +86,20 @@ impl Model {
             match f.tag {
                 Tag::Make
                 | Tag::Model
-                // | Tag::DateTime
-                // | Tag::XResolution
-                // | Tag::YResolution
                 | Tag::Software
                 | Tag::DateTimeOriginal
-                // | Tag::Artist
-                // | Tag::Copyright
+                | Tag::CameraOwnerName
                 | Tag::ExposureTime
                 | Tag::FNumber
-                // | Tag::FocalLength
+                | Tag::FocalLength
                 | Tag::ISOSpeed
+                | Tag::Humidity
+                | Tag::CameraElevationAngle
+                | Tag::Pressure
+                | Tag::Compression
+                | Tag::Contrast
+                // | Tag::Orientation
+                | Tag::ColorSpace
                 | Tag::MeteringMode => {
                     exif_data_rows.push(f.clone());
                 }
@@ -200,8 +203,19 @@ impl Model {
         exif_data_rows
     }
 
-    pub fn update_globe_rotation(&mut self) {
-        self.globe.angle += 0.01;
+    pub fn rotate_globe(&mut self) {
+        let globe_rot_speed = 1. / 1000.;
+        let cam_rot_speed = 1. / 1000.;
+        self.globe.angle += globe_rot_speed;
+        self.camera_settings.alpha += globe_rot_speed / 2.;
+
+        self.camera_settings.alpha += cam_rot_speed;
+
+        self.globe.camera.update(
+            self.camera_settings.zoom,
+            self.camera_settings.alpha,
+            self.camera_settings.beta,
+        );
     }
 
     pub fn camera_zoom_increase(&mut self) {
