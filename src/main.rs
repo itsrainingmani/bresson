@@ -24,12 +24,12 @@ fn main() -> Result<()> {
     let app_mode = match std::env::args().nth(2) {
         Some(second) => {
             if second.eq("-c") {
-                ApplicationMode::CommandLine
+                AppMode::CommandLine
             } else {
-                ApplicationMode::Interactive
+                AppMode::Interactive
             }
         }
-        None => ApplicationMode::Interactive,
+        None => AppMode::Interactive,
     };
 
     let image_file = Path::new(&image_arg);
@@ -45,26 +45,27 @@ fn main() -> Result<()> {
     let mut globe = Globe::new(1., 0., false);
     globe.camera.update(cam_zoom, cam_xy, cam_z);
     // globe.angle += 1.1;
-    let mut metadata = Model::new(image_file, globe, app_mode)?;
+    let mut metadata = Application::new(image_file, globe, app_mode)?;
     let mut table_state = TableState::new().with_selected(Some(0));
 
     match app_mode {
-        ApplicationMode::CommandLine => {
+        AppMode::CommandLine => {
             // Print out the Exif Data in the CLI
             println!("Tag - Original | Randomized");
-            for f in &metadata.original_fields {
-                println!(
-                    "{} {}",
-                    f.tag,
-                    f.display_value()
-                        .with_unit(&metadata.exif)
-                        .to_string()
-                        .trim_matches('"')
-                )
-            }
+            metadata.clear_exif_data()?;
+            // for f in &metadata.original_fields {
+            //     println!(
+            //         "{} {}",
+            //         f.tag,
+            //         f.display_value()
+            //             .with_unit(&metadata.exif)
+            //             .to_string()
+            //             .trim_matches('"')
+            //     )
+            // }
             Ok(())
         }
-        ApplicationMode::Interactive => {
+        AppMode::Interactive => {
             tui::install_panic_hook();
             let mut terminal = tui::init_terminal()?;
             terminal.clear()?;
@@ -142,7 +143,7 @@ fn main() -> Result<()> {
     }
 }
 
-fn view(metadata: &mut Model, frame: &mut Frame, table_state: &mut TableState) {
+fn view(metadata: &mut Application, frame: &mut Frame, table_state: &mut TableState) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints(vec![

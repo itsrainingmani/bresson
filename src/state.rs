@@ -1,16 +1,31 @@
 use crate::globe::Globe;
 use anyhow::Result;
 use chrono::prelude::*;
+<<<<<<< HEAD
 use exif::{Exif, Field, In, Rational, Tag, Value};
+=======
+use exif::{experimental::Writer, Exif, Field, In, Rational, Tag, Value};
+use globe::Globe;
+>>>>>>> af6534d (exploring clearing metadata)
 use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
 use ratatui::widgets::Row;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    io::{self, Read, Write},
+    path::{Path, PathBuf},
+};
 // Step one is taking a given image file and read out some of the super basic metadata about it
 
 #[derive(Debug, Clone, Copy)]
-pub enum ApplicationMode {
+pub enum AppMode {
     CommandLine,
     Interactive,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum RenderState {
+    Normal,
+    Help,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -47,13 +62,14 @@ impl Default for GPSInfo {
 
 pub type ExifTags = Vec<Field>;
 
-pub struct Model {
+pub struct Application {
     pub path_to_image: PathBuf,
     pub exif: Exif,
     pub original_fields: ExifTags,
     pub randomized_fields: ExifTags,
+    pub tags_to_randomize: HashSet<Tag>,
     pub globe: Globe,
-    pub app_mode: ApplicationMode,
+    pub app_mode: AppMode,
     pub has_gps: bool,
     pub gps_info: GPSInfo,
     pub camera_settings: CameraSettings,
@@ -63,7 +79,7 @@ pub fn random_datetime(rng: &mut ThreadRng) -> String {
     let now_utc = Utc::now();
     let date_utc = now_utc.date_naive();
     format!(
-        "{}-{:02}-{:02} {:02}:{:02}:{:02}",
+        "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
         rng.gen_range(2001..=date_utc.year_ce().1),
         rng.gen_range(1..=(date_utc.month0() + 1)),
         rng.gen_range(1..=(date_utc.day0() + 1)),
@@ -73,40 +89,55 @@ pub fn random_datetime(rng: &mut ThreadRng) -> String {
     )
 }
 
-impl Model {
-    pub fn new(path_to_image: &Path, g: Globe, app_mode: ApplicationMode) -> Result<Self> {
+impl Application {
+    pub fn new(path_to_image: &Path, g: Globe, app_mode: AppMode) -> Result<Self> {
         let file = std::fs::File::open(path_to_image)?;
+
+        // println!("Size of img is {}", file.metadata()?.len());
+
         let mut bufreader = std::io::BufReader::new(&file);
         let exifreader = exif::Reader::new();
         let exif = exifreader.read_from_container(&mut bufreader)?;
         let mut has_gps = false;
 
+        let tags_to_randomize = HashSet::from([
+            Tag::Make,
+            Tag::Model,
+            Tag::DateTimeOriginal,
+            Tag::ExposureTime,
+            Tag::FNumber,
+            Tag::MeteringMode,
+            Tag::ColorSpace,
+        ]);
+
         let mut exif_data_rows: ExifTags = Vec::new();
         for f in exif.fields() {
             match f.tag {
-                Tag::Make
-                | Tag::Model
-                | Tag::Software
-                | Tag::DateTimeOriginal
-                | Tag::CameraOwnerName
-                | Tag::ExposureTime
-                | Tag::FNumber
-                | Tag::FocalLength
-                | Tag::ISOSpeed
-                | Tag::Humidity
-                | Tag::CameraElevationAngle
-                | Tag::Pressure
-                | Tag::Compression
-                | Tag::Contrast
-                // | Tag::Orientation
-                | Tag::ColorSpace
-                | Tag::MeteringMode => {
-                    exif_data_rows.push(f.clone());
-                }
+                // Tag::Make
+                // | Tag::Model
+                // | Tag::Software
+                // | Tag::DateTimeOriginal
+                // | Tag::CameraOwnerName
+                // | Tag::ExposureTime
+                // | Tag::FNumber
+                // | Tag::FocalLength
+                // | Tag::ISOSpeed
+                // | Tag::Humidity
+                // | Tag::CameraElevationAngle
+                // | Tag::Pressure
+                // | Tag::Compression
+                // | Tag::Contrast
+                // // | Tag::Orientation
+                // | Tag::ColorSpace
+                // | Tag::MeteringMode => {
+                //     exif_data_rows.push(f.clone());
+                // }
                 Tag::GPSLatitude | Tag::GPSLongitude => {
                     has_gps = true;
                 }
-                _ => {}
+                _ => {
+                    exif_data_rows.push(f.clone());
+                }
             }
         }
 
@@ -172,6 +203,7 @@ impl Model {
             exif,
             original_fields: exif_data_rows.clone(),
             randomized_fields: exif_data_rows.clone(),
+            tags_to_randomize,
             globe: g,
             app_mode,
             has_gps,
@@ -207,9 +239,7 @@ impl Model {
         let globe_rot_speed = 1. / 1000.;
         let cam_rot_speed = 1. / 1000.;
         self.globe.angle += globe_rot_speed;
-        self.camera_settings.alpha += globe_rot_speed / 2.;
-
-        self.camera_settings.alpha += cam_rot_speed;
+        self.camera_settings.alpha += cam_rot_speed + (globe_rot_speed / 2.);
 
         self.globe.camera.update(
             self.camera_settings.zoom,
@@ -328,6 +358,61 @@ impl Model {
         }
 
         // self.randomized_fields = random_data;
+    }
+
+    pub fn clear_exif_data(&mut self) -> Result<()> {
+        // Zero out all available tags
+        // todo!()
+        // Internals of Exif read_from_container
+        // reader.by_ref().take(4096).read_to_end(&mut buf)?;
+        // take -> creates an adapter which will read at most "limit" bytes from it
+        let exif_buf = self.exif.buf();
+        let size_of_exif_buf = exif_buf.len();
+        println!("Size of og exif buf: {}", size_of_exif_buf);
+
+        let mut buf = Vec::new();
+        let mut handle = exif_buf.take(20);
+        _ = handle.read_to_end(&mut buf)?;
+        for b in buf.bytes() {
+            println!("{:#x}", b.unwrap());
+        }
+
+        let exif_ver = Field {
+            tag: Tag::ExifVersion,
+            ifd_num: In::PRIMARY,
+            value: Value::Undefined(b"0231".to_vec(), 0),
+        };
+
+        let mut exif_writer = Writer::new();
+        let mut new_exif_buf = io::Cursor::new(Vec::new());
+        exif_writer.push_field(&exif_ver);
+        exif_writer.write(&mut new_exif_buf, false)?;
+        let mut new_exif_buf = new_exif_buf.clone().into_inner();
+        println!("Size of new exif buf: {}", new_exif_buf.len());
+        for b in new_exif_buf.bytes() {
+            println!("{:#x}", b.unwrap());
+        }
+
+        let file = std::fs::File::open(&self.path_to_image)?;
+        let mut bufreader = std::io::BufReader::new(&file);
+        let mut img_buf = Vec::new();
+
+        _ = bufreader.read_to_end(&mut img_buf);
+
+        let img_data = &img_buf[size_of_exif_buf - 1..];
+        new_exif_buf.extend_from_slice(&img_data);
+        println!("{}", new_exif_buf.len());
+
+        let mut copy_file_path = self.path_to_image.clone();
+        let copy_file_name = copy_file_path.file_name().expect("Valid File Name");
+
+        copy_file_path.set_file_name(format!("copy-{}", copy_file_name.to_str().unwrap()));
+        println!("{}", copy_file_path.display());
+
+        let mut copy_file = std::fs::File::create(copy_file_path)?;
+        copy_file.write_all(new_exif_buf.as_slice())?;
+
+        Ok(())
     }
 }
 
