@@ -7,6 +7,7 @@ use ratatui::widgets::Row;
 use std::{
     collections::HashSet,
     io::{self, Read, Write},
+    ops::Index,
     path::{Path, PathBuf},
 };
 // Step one is taking a given image file and read out some of the super basic metadata about it
@@ -357,7 +358,6 @@ impl Application {
 
     pub fn clear_exif_data(&mut self) -> Result<()> {
         // Zero out all available tags
-        // todo!()
         // Internals of Exif read_from_container
         // reader.by_ref().take(4096).read_to_end(&mut buf)?;
         // take -> creates an adapter which will read at most "limit" bytes from it
@@ -365,47 +365,147 @@ impl Application {
         let size_of_exif_buf = exif_buf.len();
         println!("Size of og exif buf: {}", size_of_exif_buf);
 
-        let mut buf = Vec::new();
-        let mut handle = exif_buf.take(20);
-        _ = handle.read_to_end(&mut buf)?;
-        for b in buf.bytes() {
-            println!("{:#x}", b.unwrap());
-        }
+        // Dummy fields
+        // let jpeg = b"JPEG";
+        // let exif_ver = Field {
+        //     tag: Tag::ExifVersion,
+        //     ifd_num: In::PRIMARY,
+        //     value: Value::Undefined(b"0231".to_vec(), 0),
+        // };
+        // let desc = Field {
+        //     tag: Tag::ImageDescription,
+        //     ifd_num: In::PRIMARY,
+        //     value: Value::Ascii(vec![b"jpg".to_vec()]),
+        // };
+        // let gps_ver = Field {
+        //     tag: Tag::GPSVersionID,
+        //     ifd_num: In::PRIMARY,
+        //     value: Value::Byte(vec![2, 3, 0, 0]),
+        // };
 
-        let exif_ver = Field {
-            tag: Tag::ExifVersion,
-            ifd_num: In::PRIMARY,
-            value: Value::Undefined(b"0231".to_vec(), 0),
-        };
-
+        // Write exif version to a new exif data buffer
         let mut exif_writer = Writer::new();
         let mut new_exif_buf = io::Cursor::new(Vec::new());
-        exif_writer.push_field(&exif_ver);
-        exif_writer.write(&mut new_exif_buf, false)?;
-        let mut new_exif_buf = new_exif_buf.clone().into_inner();
-        println!("Size of new exif buf: {}", new_exif_buf.len());
-        for b in new_exif_buf.bytes() {
-            println!("{:#x}", b.unwrap());
-        }
+        // exif_writer.push_field(&exif_ver);
 
+        let cleared_fields: Vec<Field> = self
+            .original_fields
+            .iter()
+            .map(|f| match &f.value {
+                Value::Ascii(x) => {
+                    let mut empty_vec: Vec<Vec<u8>> = Vec::with_capacity(x.len());
+                    for i in x {
+                        empty_vec.push(vec![0; i.len()]);
+                    }
+                    Field {
+                        tag: f.tag,
+                        ifd_num: f.ifd_num,
+                        value: Value::Ascii(empty_vec),
+                    }
+                }
+                _ => f.clone(),
+                // Value::Byte(_) => Field {
+                //     tag: f.tag,
+                //     ifd_num: f.ifd_num,
+                //     value: Value::Byte(vec![]),
+                // },
+                // Value::Ascii(_) => Field {
+                //     tag: f.tag,
+                //     ifd_num: f.ifd_num,
+                //     value: Value::Ascii(vec![]),
+                // },
+                // Value::Short(_) => Field {
+                //     tag: f.tag,
+                //     ifd_num: f.ifd_num,
+                //     value: Value::Short(vec![]),
+                // },
+                // Value::Long(_) => Field {
+                //     tag: f.tag,
+                //     ifd_num: f.ifd_num,
+                //     value: Value::Long(vec![]),
+                // },
+                // Value::Rational(_) => Field {
+                //     tag: f.tag,
+                //     ifd_num: f.ifd_num,
+                //     value: Value::Rational(vec![]),
+                // },
+                // Value::SByte(_) => Field {
+                //     tag: f.tag,
+                //     ifd_num: f.ifd_num,
+                //     value: Value::SByte(vec![]),
+                // },
+                // Value::SShort(_) => Field {
+                //     tag: f.tag,
+                //     ifd_num: f.ifd_num,
+                //     value: Value::SShort(vec![]),
+                // },
+                // Value::SLong(_) => Field {
+                //     tag: f.tag,
+                //     ifd_num: f.ifd_num,
+                //     value: Value::SLong(vec![]),
+                // },
+                // Value::SRational(_) => Field {
+                //     tag: f.tag,
+                //     ifd_num: f.ifd_num,
+                //     value: Value::SRational(vec![]),
+                // },
+                // Value::Float(_) => Field {
+                //     tag: f.tag,
+                //     ifd_num: f.ifd_num,
+                //     value: Value::Float(vec![]),
+                // },
+                // Value::Double(_) => Field {
+                //     tag: f.tag,
+                //     ifd_num: f.ifd_num,
+                //     value: Value::Double(vec![]),
+                // },
+                // Value::Undefined(_, _) => f.clone(),
+                // Value::Unknown(_, _, _) => f.clone(),
+            })
+            .collect();
+
+        for f in &cleared_fields {
+            exif_writer.push_field(&f);
+        }
+        // exif_writer.push_field(&desc);
+        // exif_writer.push_field(&gps_ver);
+        // exif_writer.set_jpeg(jpeg, In::THUMBNAIL);
+        exif_writer.write(&mut new_exif_buf, false)?;
+        let new_exif_buf = new_exif_buf.clone().into_inner();
+        println!("Size of new exif buf: {}", new_exif_buf.len());
+        // for b in new_exif_buf.bytes() {
+        //     println!("{:#x}", b.unwrap());
+        // }
+
+        // Open the Image File and read into a buffer
         let file = std::fs::File::open(&self.path_to_image)?;
         let mut bufreader = std::io::BufReader::new(&file);
         let mut img_buf = Vec::new();
-
         _ = bufreader.read_to_end(&mut img_buf);
 
-        let img_data = &img_buf[size_of_exif_buf - 1..];
-        new_exif_buf.extend_from_slice(&img_data);
-        println!("{}", new_exif_buf.len());
+        // Replace the exif buffer slice in the original image with the one we create
+        let position_of_exif = img_buf
+            .windows(2)
+            .position(|x| x == &new_exif_buf[0..2])
+            .unwrap();
 
+        let mut exif_header = Vec::new();
+        exif_header.extend_from_slice(&img_buf[0..position_of_exif]);
+        exif_header.extend(new_exif_buf.clone());
+        // exif_header.extend(exif_buf);
+        let img_data = &img_buf[position_of_exif + size_of_exif_buf..];
+        exif_header.extend_from_slice(&img_data);
+        println!("Position of start of exif: {}", position_of_exif);
+        println!("{}", exif_header.len());
+
+        // Create a file copy using the original name of the file
         let mut copy_file_path = self.path_to_image.clone();
         let copy_file_name = copy_file_path.file_name().expect("Valid File Name");
-
         copy_file_path.set_file_name(format!("copy-{}", copy_file_name.to_str().unwrap()));
         println!("{}", copy_file_path.display());
 
         let mut copy_file = std::fs::File::create(copy_file_path)?;
-        copy_file.write_all(new_exif_buf.as_slice())?;
+        copy_file.write_all(&exif_header.as_slice())?;
 
         Ok(())
     }
