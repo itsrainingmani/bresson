@@ -1,5 +1,6 @@
 use anyhow::Result;
 use chrono::prelude::*;
+use core::f32;
 use exif::{experimental::Writer, Exif, Field, In, Rational, SRational, Tag, Value};
 use globe::Globe;
 use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
@@ -31,6 +32,7 @@ pub enum Cardinal {
     South,
 }
 
+#[derive(Debug)]
 pub struct GPSInfo {
     latitude: f32,
     lat_direction: Cardinal,
@@ -141,9 +143,14 @@ impl Application {
             let lat: f32 = match exif.get_field(Tag::GPSLatitude, In::PRIMARY) {
                 Some(l) => match l.value {
                     Value::Rational(ref v) if !v.is_empty() => {
-                        (v[0].num as f32 / v[0].denom as f32)
-                            + (v[1].num as f32 / v[1].denom as f32) / 60.
-                            + (v[2].num as f32 / v[2].denom as f32) / (60. * 100.)
+                        let lat_internals = vec![
+                            (v[0].num as f32 / v[0].denom as f32),
+                            (v[1].num as f32 / v[1].denom as f32) / 60.,
+                            (v[2].num as f32 / v[2].denom as f32) / (60. * 100.),
+                        ];
+                        lat_internals
+                            .iter()
+                            .fold(0., |sum: f32, x| if x.is_nan() { sum } else { sum + x })
                     }
                     _ => 0.,
                 },
@@ -152,9 +159,14 @@ impl Application {
             let long: f32 = match exif.get_field(Tag::GPSLongitude, In::PRIMARY) {
                 Some(l) => match l.value {
                     Value::Rational(ref v) if !v.is_empty() => {
-                        (v[0].num as f32 / v[0].denom as f32)
-                            + (v[1].num as f32 / v[1].denom as f32) / 60.
-                            + (v[2].num as f32 / v[2].denom as f32) / (60. * 100.)
+                        let long_internals = vec![
+                            (v[0].num as f32 / v[0].denom as f32),
+                            (v[1].num as f32 / v[1].denom as f32) / 60.,
+                            (v[2].num as f32 / v[2].denom as f32) / (60. * 100.),
+                        ];
+                        long_internals
+                            .iter()
+                            .fold(0., |sum: f32, x| if x.is_nan() { sum } else { sum + x })
                     }
                     _ => 0.,
                 },
@@ -184,6 +196,10 @@ impl Application {
                 }
                 None => Cardinal::East,
             };
+
+            if lat == 0. && long == 0. {
+                has_gps = false
+            }
             GPSInfo {
                 latitude: lat,
                 lat_direction: lat_dir,
@@ -191,6 +207,7 @@ impl Application {
                 long_direction: long_dir,
             }
         } else {
+            has_gps = false;
             GPSInfo::default()
         };
 
@@ -352,8 +369,15 @@ impl Application {
             }
             None => {}
         }
+    }
 
-        // self.randomized_fields = random_data;
+    fn create_copy_file_name(&self) -> PathBuf {
+        let mut copy_file_path = self.path_to_image.clone();
+        let copy_file_name = copy_file_path.file_name().expect("Valid File Name");
+        copy_file_path.set_file_name(format!("copy-{}", copy_file_name.to_str().unwrap()));
+        println!("{}", copy_file_path.display());
+
+        copy_file_path
     }
 
     pub fn clear_exif_data(&mut self) -> Result<()> {
@@ -462,7 +486,7 @@ impl Application {
         if let Some(ref tn_jpeg) = tn_jpeg {
             exif_writer.set_jpeg(tn_jpeg, In::THUMBNAIL);
         }
-        exif_writer.write(&mut new_exif_buf, false)?;
+        exif_writer.write(&mut new_exif_buf, self.exif.little_endian())?;
         let new_exif_buf = new_exif_buf.clone().into_inner();
         println!("Size of new exif buf: {}", new_exif_buf.len());
 
@@ -488,12 +512,7 @@ impl Application {
         println!("{}", exif_header.len());
 
         // Create a file copy using the original name of the file
-        let mut copy_file_path = self.path_to_image.clone();
-        let copy_file_name = copy_file_path.file_name().expect("Valid File Name");
-        copy_file_path.set_file_name(format!("copy-{}", copy_file_name.to_str().unwrap()));
-        println!("{}", copy_file_path.display());
-
-        let mut copy_file = std::fs::File::create(copy_file_path)?;
+        let mut copy_file = std::fs::File::create(self.create_copy_file_name())?;
         copy_file.write_all(&exif_header.as_slice())?;
 
         Ok(())

@@ -222,12 +222,14 @@ fn view(metadata: &mut Application, frame: &mut Frame, table_state: &mut TableSt
 
                             x => {
                                 // Only useful when there is no z-axis panning going on
-                                let long_lat_color =
-                                    if i == (size_y / 2) - 1 && j == (size_x / 2) - 1 {
-                                        x.to_string().red().bold().slow_blink()
-                                    } else {
-                                        x.to_string().into()
-                                    };
+                                let long_lat_color = if metadata.has_gps
+                                    && i == (size_y / 2) - 1
+                                    && j == (size_x / 2) - 1
+                                {
+                                    x.to_string().red().bold().slow_blink()
+                                } else {
+                                    x.to_string().into()
+                                };
                                 ctx.print(j as f64, translated_i as f64, long_lat_color)
                                 // ctx.print(j as f64, translated_i as f64, x.to_string())
                             }
