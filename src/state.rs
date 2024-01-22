@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::prelude::*;
-use exif::{experimental::Writer, Exif, Field, In, Rational, Tag, Value};
+use exif::{experimental::Writer, Exif, Field, In, Rational, SRational, Tag, Value};
 use globe::Globe;
 use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
 use ratatui::widgets::Row;
@@ -365,14 +365,6 @@ impl Application {
         let size_of_exif_buf = exif_buf.len();
         println!("Size of og exif buf: {}", size_of_exif_buf);
 
-        // Dummy fields
-        // let jpeg = b"JPEG";
-        // let exif_ver = Field {
-        //     tag: Tag::ExifVersion,
-        //     ifd_num: In::PRIMARY,
-        //     value: Value::Undefined(b"0231".to_vec(), 0),
-        // };
-
         // Write exif version to a new exif data buffer
         let mut exif_writer = Writer::new();
         let mut new_exif_buf = io::Cursor::new(Vec::new());
@@ -380,83 +372,71 @@ impl Application {
         let cleared_fields: Vec<Field> = self
             .original_fields
             .iter()
-            .map(|f| match f.tag {
-                Tag::UserComment => Field {
+            .map(|f| match &f.value {
+                Value::Ascii(x) => {
+                    let mut empty_vec: Vec<Vec<u8>> = Vec::with_capacity(x.len());
+                    for i in x {
+                        empty_vec.push(vec![0; i.len()]);
+                    }
+                    Field {
+                        tag: f.tag,
+                        ifd_num: f.ifd_num,
+                        value: Value::Ascii(empty_vec),
+                    }
+                }
+                Value::Byte(x) => Field {
                     tag: f.tag,
                     ifd_num: f.ifd_num,
-                    value: Value::Ascii(vec![Vec::from("Test comment")]),
+                    value: Value::Byte(vec![0; x.len()]),
                 },
-                // Value::Ascii(x) => {
-                //     let mut empty_vec: Vec<Vec<u8>> = Vec::with_capacity(x.len());
-                //     for i in x {
-                //         empty_vec.push(vec![0; i.len()]);
-                //     }
-                //     Field {
-                //         tag: f.tag,
-                //         ifd_num: f.ifd_num,
-                //         value: Value::Ascii(empty_vec),
-                //     }
-                // }
-                _ => {
-                    // println!("{:?}", f.tag.to_string());
-                    f.clone()
-                } // Value::Byte(_) => Field {
-                  //     tag: f.tag,
-                  //     ifd_num: f.ifd_num,
-                  //     value: Value::Byte(vec![]),
-                  // },
-                  // Value::Ascii(_) => Field {
-                  //     tag: f.tag,
-                  //     ifd_num: f.ifd_num,
-                  //     value: Value::Ascii(vec![]),
-                  // },
-                  // Value::Short(_) => Field {
-                  //     tag: f.tag,
-                  //     ifd_num: f.ifd_num,
-                  //     value: Value::Short(vec![]),
-                  // },
-                  // Value::Long(_) => Field {
-                  //     tag: f.tag,
-                  //     ifd_num: f.ifd_num,
-                  //     value: Value::Long(vec![]),
-                  // },
-                  // Value::Rational(_) => Field {
-                  //     tag: f.tag,
-                  //     ifd_num: f.ifd_num,
-                  //     value: Value::Rational(vec![]),
-                  // },
-                  // Value::SByte(_) => Field {
-                  //     tag: f.tag,
-                  //     ifd_num: f.ifd_num,
-                  //     value: Value::SByte(vec![]),
-                  // },
-                  // Value::SShort(_) => Field {
-                  //     tag: f.tag,
-                  //     ifd_num: f.ifd_num,
-                  //     value: Value::SShort(vec![]),
-                  // },
-                  // Value::SLong(_) => Field {
-                  //     tag: f.tag,
-                  //     ifd_num: f.ifd_num,
-                  //     value: Value::SLong(vec![]),
-                  // },
-                  // Value::SRational(_) => Field {
-                  //     tag: f.tag,
-                  //     ifd_num: f.ifd_num,
-                  //     value: Value::SRational(vec![]),
-                  // },
-                  // Value::Float(_) => Field {
-                  //     tag: f.tag,
-                  //     ifd_num: f.ifd_num,
-                  //     value: Value::Float(vec![]),
-                  // },
-                  // Value::Double(_) => Field {
-                  //     tag: f.tag,
-                  //     ifd_num: f.ifd_num,
-                  //     value: Value::Double(vec![]),
-                  // },
-                  // Value::Undefined(_, _) => f.clone(),
-                  // Value::Unknown(_, _, _) => f.clone(),
+                Value::Short(x) => Field {
+                    tag: f.tag,
+                    ifd_num: f.ifd_num,
+                    value: Value::Short(vec![0; x.len()]),
+                },
+                Value::Long(x) => Field {
+                    tag: f.tag,
+                    ifd_num: f.ifd_num,
+                    value: Value::Long(vec![0; x.len()]),
+                },
+                Value::Rational(x) => Field {
+                    tag: f.tag,
+                    ifd_num: f.ifd_num,
+                    value: Value::Rational(vec![Rational { num: 0, denom: 0 }; x.len()]),
+                },
+                Value::SByte(x) => Field {
+                    tag: f.tag,
+                    ifd_num: f.ifd_num,
+                    value: Value::SByte(vec![0; x.len()]),
+                },
+                Value::SShort(x) => Field {
+                    tag: f.tag,
+                    ifd_num: f.ifd_num,
+                    value: Value::SShort(vec![0; x.len()]),
+                },
+                Value::SLong(x) => Field {
+                    tag: f.tag,
+                    ifd_num: f.ifd_num,
+                    value: Value::SLong(vec![0; x.len()]),
+                },
+                Value::SRational(x) => Field {
+                    tag: f.tag,
+                    ifd_num: f.ifd_num,
+                    value: Value::SRational(vec![SRational { num: 0, denom: 0 }; x.len()]),
+                },
+                Value::Float(x) => Field {
+                    tag: f.tag,
+                    ifd_num: f.ifd_num,
+                    value: Value::Float(vec![0.; x.len()]),
+                },
+                Value::Double(x) => Field {
+                    tag: f.tag,
+                    ifd_num: f.ifd_num,
+                    value: Value::Double(vec![0.; x.len()]),
+                },
+                // Value::Undefined(_, _) => f.clone(),
+                // Value::Unknown(_, _, _) => f.clone(),
+                _ => f.clone(),
             })
             .collect();
 
