@@ -1,18 +1,12 @@
 use crate::globe::Globe;
 use anyhow::Result;
 use chrono::prelude::*;
-<<<<<<< HEAD
-use exif::{Exif, Field, In, Rational, Tag, Value};
-=======
 use exif::{experimental::Writer, Exif, Field, In, Rational, Tag, Value};
-use globe::Globe;
->>>>>>> af6534d (exploring clearing metadata)
 use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
 use ratatui::widgets::Row;
 use std::{
     collections::HashSet,
     io::{self, Read, Write},
-    ops::Index,
     path::{Path, PathBuf},
 };
 // Step one is taking a given image file and read out some of the super basic metadata about it
@@ -135,6 +129,7 @@ impl Application {
                 // }
                 Tag::GPSLatitude | Tag::GPSLongitude => {
                     has_gps = true;
+                    exif_data_rows.push(f.clone());
                 }
                 _ => {
                     exif_data_rows.push(f.clone());
@@ -377,110 +372,119 @@ impl Application {
         //     ifd_num: In::PRIMARY,
         //     value: Value::Undefined(b"0231".to_vec(), 0),
         // };
-        // let desc = Field {
-        //     tag: Tag::ImageDescription,
-        //     ifd_num: In::PRIMARY,
-        //     value: Value::Ascii(vec![b"jpg".to_vec()]),
-        // };
-        // let gps_ver = Field {
-        //     tag: Tag::GPSVersionID,
-        //     ifd_num: In::PRIMARY,
-        //     value: Value::Byte(vec![2, 3, 0, 0]),
-        // };
 
         // Write exif version to a new exif data buffer
         let mut exif_writer = Writer::new();
         let mut new_exif_buf = io::Cursor::new(Vec::new());
-        // exif_writer.push_field(&exif_ver);
 
         let cleared_fields: Vec<Field> = self
             .original_fields
             .iter()
-            .map(|f| match &f.value {
-                Value::Ascii(x) => {
-                    let mut empty_vec: Vec<Vec<u8>> = Vec::with_capacity(x.len());
-                    for i in x {
-                        empty_vec.push(vec![0; i.len()]);
-                    }
-                    Field {
-                        tag: f.tag,
-                        ifd_num: f.ifd_num,
-                        value: Value::Ascii(empty_vec),
-                    }
-                }
-                _ => f.clone(),
-                // Value::Byte(_) => Field {
-                //     tag: f.tag,
-                //     ifd_num: f.ifd_num,
-                //     value: Value::Byte(vec![]),
-                // },
-                // Value::Ascii(_) => Field {
-                //     tag: f.tag,
-                //     ifd_num: f.ifd_num,
-                //     value: Value::Ascii(vec![]),
-                // },
-                // Value::Short(_) => Field {
-                //     tag: f.tag,
-                //     ifd_num: f.ifd_num,
-                //     value: Value::Short(vec![]),
-                // },
-                // Value::Long(_) => Field {
-                //     tag: f.tag,
-                //     ifd_num: f.ifd_num,
-                //     value: Value::Long(vec![]),
-                // },
-                // Value::Rational(_) => Field {
-                //     tag: f.tag,
-                //     ifd_num: f.ifd_num,
-                //     value: Value::Rational(vec![]),
-                // },
-                // Value::SByte(_) => Field {
-                //     tag: f.tag,
-                //     ifd_num: f.ifd_num,
-                //     value: Value::SByte(vec![]),
-                // },
-                // Value::SShort(_) => Field {
-                //     tag: f.tag,
-                //     ifd_num: f.ifd_num,
-                //     value: Value::SShort(vec![]),
-                // },
-                // Value::SLong(_) => Field {
-                //     tag: f.tag,
-                //     ifd_num: f.ifd_num,
-                //     value: Value::SLong(vec![]),
-                // },
-                // Value::SRational(_) => Field {
-                //     tag: f.tag,
-                //     ifd_num: f.ifd_num,
-                //     value: Value::SRational(vec![]),
-                // },
-                // Value::Float(_) => Field {
-                //     tag: f.tag,
-                //     ifd_num: f.ifd_num,
-                //     value: Value::Float(vec![]),
-                // },
-                // Value::Double(_) => Field {
-                //     tag: f.tag,
-                //     ifd_num: f.ifd_num,
-                //     value: Value::Double(vec![]),
-                // },
-                // Value::Undefined(_, _) => f.clone(),
-                // Value::Unknown(_, _, _) => f.clone(),
+            .map(|f| match f.tag {
+                Tag::UserComment => Field {
+                    tag: f.tag,
+                    ifd_num: f.ifd_num,
+                    value: Value::Ascii(vec![Vec::from("Test comment")]),
+                },
+                // Value::Ascii(x) => {
+                //     let mut empty_vec: Vec<Vec<u8>> = Vec::with_capacity(x.len());
+                //     for i in x {
+                //         empty_vec.push(vec![0; i.len()]);
+                //     }
+                //     Field {
+                //         tag: f.tag,
+                //         ifd_num: f.ifd_num,
+                //         value: Value::Ascii(empty_vec),
+                //     }
+                // }
+                _ => {
+                    // println!("{:?}", f.tag.to_string());
+                    f.clone()
+                } // Value::Byte(_) => Field {
+                  //     tag: f.tag,
+                  //     ifd_num: f.ifd_num,
+                  //     value: Value::Byte(vec![]),
+                  // },
+                  // Value::Ascii(_) => Field {
+                  //     tag: f.tag,
+                  //     ifd_num: f.ifd_num,
+                  //     value: Value::Ascii(vec![]),
+                  // },
+                  // Value::Short(_) => Field {
+                  //     tag: f.tag,
+                  //     ifd_num: f.ifd_num,
+                  //     value: Value::Short(vec![]),
+                  // },
+                  // Value::Long(_) => Field {
+                  //     tag: f.tag,
+                  //     ifd_num: f.ifd_num,
+                  //     value: Value::Long(vec![]),
+                  // },
+                  // Value::Rational(_) => Field {
+                  //     tag: f.tag,
+                  //     ifd_num: f.ifd_num,
+                  //     value: Value::Rational(vec![]),
+                  // },
+                  // Value::SByte(_) => Field {
+                  //     tag: f.tag,
+                  //     ifd_num: f.ifd_num,
+                  //     value: Value::SByte(vec![]),
+                  // },
+                  // Value::SShort(_) => Field {
+                  //     tag: f.tag,
+                  //     ifd_num: f.ifd_num,
+                  //     value: Value::SShort(vec![]),
+                  // },
+                  // Value::SLong(_) => Field {
+                  //     tag: f.tag,
+                  //     ifd_num: f.ifd_num,
+                  //     value: Value::SLong(vec![]),
+                  // },
+                  // Value::SRational(_) => Field {
+                  //     tag: f.tag,
+                  //     ifd_num: f.ifd_num,
+                  //     value: Value::SRational(vec![]),
+                  // },
+                  // Value::Float(_) => Field {
+                  //     tag: f.tag,
+                  //     ifd_num: f.ifd_num,
+                  //     value: Value::Float(vec![]),
+                  // },
+                  // Value::Double(_) => Field {
+                  //     tag: f.tag,
+                  //     ifd_num: f.ifd_num,
+                  //     value: Value::Double(vec![]),
+                  // },
+                  // Value::Undefined(_, _) => f.clone(),
+                  // Value::Unknown(_, _, _) => f.clone(),
             })
             .collect();
 
         for f in &cleared_fields {
             exif_writer.push_field(&f);
         }
-        // exif_writer.push_field(&desc);
-        // exif_writer.push_field(&gps_ver);
-        // exif_writer.set_jpeg(jpeg, In::THUMBNAIL);
+
+        // https://github.com/kamadak/exif-rs/blob/a8883a6597f2ba9eb8c9b1cb38bfa61a5cc67837/tests/rwrcmp.rs#L90
+        let strips = self.get_strips(In::PRIMARY);
+        let tn_strips = self.get_strips(In::THUMBNAIL);
+        let tiles = self.get_tiles(In::PRIMARY);
+        let tn_jpeg = self.get_jpeg(In::THUMBNAIL);
+
+        if let Some(ref strips) = strips {
+            exif_writer.set_strips(strips, In::PRIMARY);
+        }
+        if let Some(ref tn_strips) = tn_strips {
+            exif_writer.set_strips(tn_strips, In::THUMBNAIL);
+        }
+        if let Some(ref tiles) = tiles {
+            exif_writer.set_tiles(tiles, In::PRIMARY);
+        }
+        if let Some(ref tn_jpeg) = tn_jpeg {
+            exif_writer.set_jpeg(tn_jpeg, In::THUMBNAIL);
+        }
         exif_writer.write(&mut new_exif_buf, false)?;
         let new_exif_buf = new_exif_buf.clone().into_inner();
         println!("Size of new exif buf: {}", new_exif_buf.len());
-        // for b in new_exif_buf.bytes() {
-        //     println!("{:#x}", b.unwrap());
-        // }
 
         // Open the Image File and read into a buffer
         let file = std::fs::File::open(&self.path_to_image)?;
@@ -513,6 +517,70 @@ impl Application {
         copy_file.write_all(&exif_header.as_slice())?;
 
         Ok(())
+    }
+
+    fn get_strips(&self, ifd_num: In) -> Option<Vec<&[u8]>> {
+        let offsets = self
+            .exif
+            .get_field(Tag::StripOffsets, ifd_num)
+            .and_then(|f| f.value.iter_uint());
+        let counts = self
+            .exif
+            .get_field(Tag::StripByteCounts, ifd_num)
+            .and_then(|f| f.value.iter_uint());
+        let (offsets, counts) = match (offsets, counts) {
+            (Some(offsets), Some(counts)) => (offsets, counts),
+            (None, None) => return None,
+            _ => panic!("inconsistent strip offsets and byte counts"),
+        };
+        let buf = self.exif.buf();
+        assert_eq!(offsets.len(), counts.len());
+        let strips = offsets
+            .zip(counts)
+            .map(|(ofs, cnt)| &buf[ofs as usize..(ofs + cnt) as usize])
+            .collect();
+        Some(strips)
+    }
+
+    fn get_tiles(&self, ifd_num: In) -> Option<Vec<&[u8]>> {
+        let offsets = self
+            .exif
+            .get_field(Tag::TileOffsets, ifd_num)
+            .and_then(|f| f.value.iter_uint());
+        let counts = self
+            .exif
+            .get_field(Tag::TileByteCounts, ifd_num)
+            .and_then(|f| f.value.iter_uint());
+        let (offsets, counts) = match (offsets, counts) {
+            (Some(offsets), Some(counts)) => (offsets, counts),
+            (None, None) => return None,
+            _ => panic!("inconsistent tile offsets and byte counts"),
+        };
+        assert_eq!(offsets.len(), counts.len());
+        let buf = self.exif.buf();
+        let strips = offsets
+            .zip(counts)
+            .map(|(ofs, cnt)| &buf[ofs as usize..(ofs + cnt) as usize])
+            .collect();
+        Some(strips)
+    }
+
+    fn get_jpeg(&self, ifd_num: In) -> Option<&[u8]> {
+        let offset = self
+            .exif
+            .get_field(Tag::JPEGInterchangeFormat, ifd_num)
+            .and_then(|f| f.value.get_uint(0));
+        let len = self
+            .exif
+            .get_field(Tag::JPEGInterchangeFormatLength, ifd_num)
+            .and_then(|f| f.value.get_uint(0));
+        let (offset, len) = match (offset, len) {
+            (Some(offset), Some(len)) => (offset as usize, len as usize),
+            (None, None) => return None,
+            _ => panic!("inconsistent JPEG offset and length"),
+        };
+        let buf = self.exif.buf();
+        Some(&buf[offset..offset + len])
     }
 }
 
