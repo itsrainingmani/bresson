@@ -390,30 +390,9 @@ impl Application {
         }
     }
 
-    fn create_copy_file_name(&self) -> PathBuf {
-        let mut copy_file_path = self.path_to_image.clone();
-        let copy_file_name = copy_file_path.file_name().expect("Valid File Name");
-        copy_file_path.set_file_name(format!("copy-{}", copy_file_name.to_str().unwrap()));
-        println!("{}", copy_file_path.display());
-
-        copy_file_path
-    }
-
-    pub fn clear_exif_data(&mut self) -> Result<()> {
-        // Zero out all available tags
-        // Internals of Exif read_from_container
-        // reader.by_ref().take(4096).read_to_end(&mut buf)?;
-        // take -> creates an adapter which will read at most "limit" bytes from it
-        let exif_buf = self.exif.buf();
-        let size_of_exif_buf = exif_buf.len();
-        println!("Size of og exif buf: {}", size_of_exif_buf);
-
-        // Write exif version to a new exif data buffer
-        let mut exif_writer = Writer::new();
-        let mut new_exif_buf = io::Cursor::new(Vec::new());
-
-        let cleared_fields: Vec<Field> = self
-            .original_fields
+    pub fn clear_fields(&mut self) {
+        self.modified_fields = self
+            .modified_fields
             .iter()
             .map(|f| match &f.value {
                 Value::Ascii(x) => {
@@ -477,13 +456,36 @@ impl Application {
                     ifd_num: f.ifd_num,
                     value: Value::Double(vec![0.; x.len()]),
                 },
-                // Value::Undefined(_, _) => f.clone(),
-                // Value::Unknown(_, _, _) => f.clone(),
                 _ => f.clone(),
             })
             .collect();
+    }
 
-        for f in &cleared_fields {
+    fn create_copy_file_name(&self) -> PathBuf {
+        let mut copy_file_path = self.path_to_image.clone();
+        let copy_file_name = copy_file_path.file_name().expect("Valid File Name");
+        copy_file_path.set_file_name(format!("copy-{}", copy_file_name.to_str().unwrap()));
+        println!("{}", copy_file_path.display());
+
+        copy_file_path
+    }
+
+    pub fn save_state(&mut self) -> Result<()> {
+        // Zero out all available tags
+        // Internals of Exif read_from_container
+        // reader.by_ref().take(4096).read_to_end(&mut buf)?;
+        // take -> creates an adapter which will read at most "limit" bytes from it
+        let exif_buf = self.exif.buf();
+        let size_of_exif_buf = exif_buf.len();
+        eprintln!("Size of og exif buf: {}", size_of_exif_buf);
+
+        // Write exif version to a new exif data buffer
+        let mut exif_writer = Writer::new();
+        let mut new_exif_buf = io::Cursor::new(Vec::new());
+
+        // Modified fields will always have the latest modifications to the state of the
+        // Exif Metadata (including randomization and clearing)
+        for f in &self.modified_fields {
             exif_writer.push_field(&f);
         }
 
@@ -507,7 +509,7 @@ impl Application {
         }
         exif_writer.write(&mut new_exif_buf, self.exif.little_endian())?;
         let new_exif_buf = new_exif_buf.clone().into_inner();
-        println!("Size of new exif buf: {}", new_exif_buf.len());
+        eprintln!("Size of new exif buf: {}", new_exif_buf.len());
 
         // Open the Image File and read into a buffer
         let file = std::fs::File::open(&self.path_to_image)?;
@@ -527,8 +529,8 @@ impl Application {
         // exif_header.extend(exif_buf);
         let img_data = &img_buf[position_of_exif + size_of_exif_buf..];
         exif_header.extend_from_slice(&img_data);
-        println!("Position of start of exif: {}", position_of_exif);
-        println!("{}", exif_header.len());
+        eprintln!("Position of start of exif: {}", position_of_exif);
+        eprintln!("{}", exif_header.len());
 
         // Create a file copy using the original name of the file
         let mut copy_file = std::fs::File::create(self.create_copy_file_name())?;
@@ -599,10 +601,6 @@ impl Application {
         };
         let buf = self.exif.buf();
         Some(&buf[offset..offset + len])
-    }
-
-    pub fn save_state(&self) {
-        todo!()
     }
 }
 
