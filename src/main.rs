@@ -84,8 +84,7 @@ fn main() -> Result<()> {
                                 KeyCode::Char(c) => match c {
                                     'o' | 'O' => {
                                         // Show Original Data
-                                        metadata.randomized_fields =
-                                            metadata.original_fields.clone();
+                                        metadata.modified_fields = metadata.original_fields.clone();
                                     }
                                     'q' => break,
                                     'r' => {
@@ -99,6 +98,10 @@ fn main() -> Result<()> {
                                         // Randomize all fields (generalize over the individual field)
                                         metadata.randomize_all()
                                     }
+                                    's' | 'S' => {
+                                        // Save the state into a file copy
+                                        metadata.save_state()
+                                    }
                                     '+' => metadata.camera_zoom_increase(),
                                     '-' => metadata.camera_zoom_decrease(),
                                     _ => {}
@@ -106,7 +109,7 @@ fn main() -> Result<()> {
                                 KeyCode::Esc => break,
                                 KeyCode::Down => match table_state.selected() {
                                     Some(i) => {
-                                        if i == metadata.randomized_fields.len() - 1 {
+                                        if i == metadata.modified_fields.len() - 1 {
                                             *table_state.selected_mut() = Some(0)
                                         } else {
                                             *table_state.selected_mut() = Some(i + 1)
@@ -118,14 +121,14 @@ fn main() -> Result<()> {
                                     Some(i) => {
                                         if i == 0 {
                                             *table_state.selected_mut() =
-                                                Some(metadata.randomized_fields.len() - 1)
+                                                Some(metadata.modified_fields.len() - 1)
                                         } else {
                                             *table_state.selected_mut() = Some(i - 1)
                                         }
                                     }
                                     None => {
                                         *table_state.selected_mut() =
-                                            Some(metadata.randomized_fields.len() - 1)
+                                            Some(metadata.modified_fields.len() - 1)
                                     }
                                 },
                                 _ => {}

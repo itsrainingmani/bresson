@@ -63,7 +63,7 @@ pub struct Application {
     pub path_to_image: PathBuf,
     pub exif: Exif,
     pub original_fields: ExifTags,
-    pub randomized_fields: ExifTags,
+    pub modified_fields: ExifTags,
     pub tags_to_randomize: HashSet<Tag>,
     pub globe: Globe,
     pub app_mode: AppMode,
@@ -215,7 +215,7 @@ impl Application {
             path_to_image: path_to_image.to_path_buf(),
             exif,
             original_fields: exif_data_rows.clone(),
-            randomized_fields: exif_data_rows.clone(),
+            modified_fields: exif_data_rows.clone(),
             tags_to_randomize,
             globe: g,
             app_mode,
@@ -231,17 +231,36 @@ impl Application {
 
     pub fn process_rows(&self) -> Vec<Row> {
         let mut exif_data_rows = Vec::new();
-        for f in &self.randomized_fields {
+        for f in &self.modified_fields {
             let f_val = f.tag.to_string();
             if f_val.len() > 0 {
-                exif_data_rows.push(Row::new(vec![
-                    f.tag.to_string(),
-                    f.display_value()
-                        .with_unit(&self.exif)
-                        .to_string()
-                        .trim_matches('"')
-                        .to_string(),
-                ]));
+                match &f.value {
+                    Value::Ascii(x) => {
+                        if x.iter().all(|x| x.len() > 0) {
+                            exif_data_rows.push(Row::new(vec![
+                                f.tag.to_string(),
+                                f.display_value()
+                                    .with_unit(&self.exif)
+                                    .to_string()
+                                    .trim_matches('"')
+                                    .to_string(),
+                            ]));
+                        } else {
+                            exif_data_rows
+                                .push(Row::new(vec![f.tag.to_string(), String::from("")]));
+                        }
+                    }
+                    _ => {
+                        exif_data_rows.push(Row::new(vec![
+                            f.tag.to_string(),
+                            f.display_value()
+                                .with_unit(&self.exif)
+                                .to_string()
+                                .trim_matches('"')
+                                .to_string(),
+                        ]));
+                    }
+                }
             }
         }
 
@@ -307,7 +326,7 @@ impl Application {
     }
 
     pub fn randomize_all(&mut self) {
-        for i in 0..self.randomized_fields.len() {
+        for i in 0..self.modified_fields.len() {
             self.randomize(i);
         }
     }
@@ -339,7 +358,7 @@ impl Application {
         ];
         let f_numbers = vec![1, 2, 3, 4, 5, 8, 11, 16, 22, 32, 45, 64];
 
-        match self.randomized_fields.get_mut(index) {
+        match self.modified_fields.get_mut(index) {
             Some(f) => {
                 // println!("{:?}", f);
                 match f.tag {
@@ -580,6 +599,10 @@ impl Application {
         };
         let buf = self.exif.buf();
         Some(&buf[offset..offset + len])
+    }
+
+    pub fn save_state(&self) {
+        todo!()
     }
 }
 
