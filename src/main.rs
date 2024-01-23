@@ -52,7 +52,8 @@ fn main() -> Result<()> {
         AppMode::CommandLine => {
             // Print out the Exif Data in the CLI
             println!("Tag - Original | Randomized");
-            metadata.clear_exif_data()?;
+            metadata.clear_fields();
+            metadata.save_state()?;
             // for f in &metadata.original_fields {
             //     println!(
             //         "{} {}",
@@ -98,9 +99,10 @@ fn main() -> Result<()> {
                                         // Randomize all fields (generalize over the individual field)
                                         metadata.randomize_all()
                                     }
+                                    'c' | 'C' => metadata.clear_fields(),
                                     's' | 'S' => {
                                         // Save the state into a file copy
-                                        metadata.save_state()
+                                        metadata.save_state()?
                                     }
                                     '+' => metadata.camera_zoom_increase(),
                                     '-' => metadata.camera_zoom_decrease(),
