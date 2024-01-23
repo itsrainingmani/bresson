@@ -231,6 +231,7 @@ impl Application {
 
     pub fn process_rows(&self) -> Vec<Row> {
         let mut exif_data_rows = Vec::new();
+
         for f in &self.modified_fields {
             let f_val = f.tag.to_string();
             if f_val.len() > 0 {
@@ -243,7 +244,8 @@ impl Application {
                                     .with_unit(&self.exif)
                                     .to_string()
                                     .trim_matches('"')
-                                    .to_string(),
+                                    .to_string()
+                                    .replace("\\x00", ""),
                             ]));
                         } else {
                             exif_data_rows
@@ -257,7 +259,8 @@ impl Application {
                                 .with_unit(&self.exif)
                                 .to_string()
                                 .trim_matches('"')
-                                .to_string(),
+                                .to_string()
+                                .replace("\\x00", ""),
                         ]));
                     }
                 }

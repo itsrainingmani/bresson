@@ -51,19 +51,8 @@ fn main() -> Result<()> {
     match app_mode {
         AppMode::CommandLine => {
             // Print out the Exif Data in the CLI
-            println!("Tag - Original | Randomized");
             metadata.clear_fields();
             metadata.save_state()?;
-            // for f in &metadata.original_fields {
-            //     println!(
-            //         "{} {}",
-            //         f.tag,
-            //         f.display_value()
-            //             .with_unit(&metadata.exif)
-            //             .to_string()
-            //             .trim_matches('"')
-            //     )
-            // }
             Ok(())
         }
         AppMode::Interactive => {
