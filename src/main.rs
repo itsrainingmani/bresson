@@ -10,7 +10,7 @@ use ratatui::{
     prelude::*,
     style::{Color, Modifier, Style},
     symbols,
-    widgets::{canvas::*, Block, Borders, Row, Table, TableState},
+    widgets::{canvas::*, Block, Borders, Padding, Row, Table, TableState},
     Frame,
 };
 
@@ -76,7 +76,6 @@ fn main() -> Result<()> {
                                         // Show Original Data
                                         metadata.modified_fields = metadata.original_fields.clone();
                                     }
-                                    'q' => break,
                                     'r' => {
                                         // Only randomize the selected element based on table state
                                         match table_state.selected() {
@@ -93,6 +92,7 @@ fn main() -> Result<()> {
                                         // Save the state into a file copy
                                         metadata.save_state()?
                                     }
+                                    'q' => break,
                                     '+' => metadata.camera_zoom_increase(),
                                     '-' => metadata.camera_zoom_decrease(),
                                     _ => {}
@@ -140,11 +140,7 @@ fn main() -> Result<()> {
 fn view(metadata: &mut Application, frame: &mut Frame, table_state: &mut TableState) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(vec![
-            // Constraint::Percentage(15),
-            Constraint::Percentage(40),
-            Constraint::Percentage(60),
-        ])
+        .constraints(vec![Constraint::Percentage(40), Constraint::Percentage(60)])
         .split(frame.size());
     //     frame.render_widget(
     //         Paragraph::new(
@@ -169,9 +165,15 @@ fn view(metadata: &mut Application, frame: &mut Frame, table_state: &mut TableSt
                     .title("Metadata")
                     .title_style(Style::new().bold())
                     .border_set(symbols::border::PLAIN)
-                    .borders(Borders::TOP | Borders::RIGHT | Borders::LEFT),
+                    .borders(Borders::TOP | Borders::RIGHT | Borders::LEFT)
+                    .padding(Padding::uniform(2)),
             )
-            .header(Row::new(vec!["Tag", "Data"]).bold())
+            .header(
+                Row::new(vec!["Tag", "Data"])
+                    .bold()
+                    .bg(Color::DarkGray)
+                    .underlined(),
+            )
             // .style(Style::new().bold())
             .highlight_style(
                 Style::new()
@@ -181,6 +183,7 @@ fn view(metadata: &mut Application, frame: &mut Frame, table_state: &mut TableSt
             )
             .highlight_symbol("> "),
         layout[0],
+        // centered_rect(layout[0], 100, 100),
         table_state,
     );
 
@@ -202,6 +205,9 @@ fn view(metadata: &mut Application, frame: &mut Frame, table_state: &mut TableSt
             .x_bounds([0., 100.])
             .y_bounds([0., 50.])
             .paint(|ctx| {
+                // Globe Width should be 3/4 of the width of the frame to look spherical
+                // let adjusted_width = (layout[1].width as f64 * 0.75) as u16;
+                // println!("{:?}", adjusted_width);
                 ctx.layer();
                 let mut globe_canvas = globe::Canvas::new(75, 50, Some((1, 1)));
                 globe_canvas.clear();
@@ -211,27 +217,28 @@ fn view(metadata: &mut Application, frame: &mut Frame, table_state: &mut TableSt
                 for i in 0..size_y {
                     for j in 0..size_x {
                         let translated_i = 50 - i;
+                        let translated_j = j as f64 + 12.5;
                         match globe_canvas.matrix[i][j] {
-                            ' ' => ctx.print(j as f64, translated_i as f64, " "),
+                            ' ' => ctx.print(translated_j as f64, translated_i as f64, " "),
 
                             x => {
                                 // Only useful when there is no z-axis panning going on
-                                let long_lat_color = if metadata.has_gps
-                                    && i == (size_y / 2) - 1
-                                    && j == (size_x / 2) - 1
-                                {
-                                    x.to_string().red().bold().slow_blink()
-                                } else {
-                                    x.to_string().into()
-                                };
-                                ctx.print(j as f64, translated_i as f64, long_lat_color)
-                                // ctx.print(j as f64, translated_i as f64, x.to_string())
+                                // let long_lat_color = if metadata.has_gps
+                                //     && i == (size_y / 2) - 1
+                                //     && j == (size_x / 2) - 1
+                                // {
+                                //     x.to_string().red().bold().slow_blink()
+                                // } else {
+                                //     x.to_string().into()
+                                // };
+                                // ctx.print(j as f64, translated_i as f64, long_lat_color)
+                                ctx.print(translated_j as f64, translated_i as f64, x.to_string())
                             }
                         }
                     }
                 }
             }),
-        layout[1],
+        layout[1], // centered_rect(layout[1], 80, 80),
     )
 }
 
