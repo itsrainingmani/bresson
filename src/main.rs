@@ -10,7 +10,7 @@ use ratatui::{
     prelude::*,
     style::{Color, Modifier, Style},
     symbols,
-    widgets::{canvas::*, Block, Borders, Padding, Row, Table, TableState},
+    widgets::{canvas::*, Block, Borders, Clear, Padding, Row, Table, TableState},
     Frame,
 };
 
@@ -92,12 +92,21 @@ fn main() -> Result<()> {
                                         // Save the state into a file copy
                                         metadata.save_state()?
                                     }
+                                    '?' => {
+                                        // Display a popup window with keybinds
+                                        // toggle the show_keybinds state
+                                        metadata.show_keybinds = !metadata.show_keybinds
+                                    }
                                     'q' => break,
                                     '+' => metadata.camera_zoom_increase(),
                                     '-' => metadata.camera_zoom_decrease(),
                                     _ => {}
                                 },
-                                KeyCode::Esc => break,
+                                KeyCode::Esc => {
+                                    if metadata.show_keybinds {
+                                        metadata.show_keybinds = false;
+                                    }
+                                }
                                 KeyCode::Down => match table_state.selected() {
                                     Some(i) => {
                                         if i == metadata.modified_fields.len() - 1 {
@@ -166,14 +175,9 @@ fn view(metadata: &mut Application, frame: &mut Frame, table_state: &mut TableSt
                     .title_style(Style::new().bold())
                     .border_set(symbols::border::PLAIN)
                     .borders(Borders::TOP | Borders::RIGHT | Borders::LEFT)
-                    .padding(Padding::uniform(2)),
+                    .padding(Padding::uniform(1)),
             )
-            .header(
-                Row::new(vec!["Tag", "Data"])
-                    .bold()
-                    .bg(Color::DarkGray)
-                    .underlined(),
-            )
+            .header(Row::new(vec!["Tag", "Data"]).bold().underlined())
             // .style(Style::new().bold())
             .highlight_style(
                 Style::new()
@@ -193,11 +197,16 @@ fn view(metadata: &mut Application, frame: &mut Frame, table_state: &mut TableSt
         // bottom_left: symbols::line::NORMAL.horizontal_up,
         ..symbols::border::PLAIN
     };
+
     frame.render_widget(
         Canvas::default()
             .block(
                 Block::default()
-                    .title("Image Location")
+                    .title(if metadata.has_gps {
+                        "Image Location"
+                    } else {
+                        "Globe"
+                    })
                     .title_style(Style::new().bold())
                     .border_set(collapsed_top_border_set)
                     .borders(Borders::ALL),
@@ -239,7 +248,48 @@ fn view(metadata: &mut Application, frame: &mut Frame, table_state: &mut TableSt
                 }
             }),
         layout[1], // centered_rect(layout[1], 80, 80),
-    )
+    );
+    let pop_area = centered_rect(frame.size(), 50, 50);
+
+    if metadata.show_keybinds {
+        let widths = [Constraint::Length(10), Constraint::Length(90)];
+        let keybind_table = Table::new(metadata.keybind_rows(), widths).column_spacing(1);
+        frame.render_widget(Clear, pop_area);
+        frame.render_widget(
+            keybind_table.block(
+                Block::new()
+                    .title("Keybinds")
+                    .title_style(Style::new().bold())
+                    .borders(Borders::ALL),
+            ),
+            pop_area,
+        )
+    }
+}
+
+/// # Usage
+///
+/// ```rust
+/// let rect = centered_rect(f.size(), 50, 50);
+/// ```
+fn centered_rect(r: Rect, percent_x: u16, percent_y: u16) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1]
 }
 
 mod tui {

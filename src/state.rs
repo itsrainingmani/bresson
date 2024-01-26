@@ -70,6 +70,7 @@ pub struct Application {
     pub has_gps: bool,
     pub gps_info: GPSInfo,
     pub camera_settings: CameraSettings,
+    pub show_keybinds: bool,
 }
 
 pub fn random_datetime(rng: &mut ThreadRng) -> String {
@@ -226,7 +227,19 @@ impl Application {
                 alpha: 0.,
                 beta: 0.,
             },
+            show_keybinds: false,
         })
+    }
+
+    pub fn keybind_rows(&self) -> Vec<Row> {
+        Vec::from([
+            Row::new(vec!["q", "Quit"]),
+            Row::new(vec!["r", "Randomize selected Metadata"]),
+            Row::new(vec!["R", "Randomize all Metadata"]),
+            Row::new(vec!["c | C", "Clear All Metadata"]),
+            Row::new(vec!["s | S", "Save modified metadata"]),
+            Row::new(vec!["?", "Show/Dismiss Keybind Info"]),
+        ])
     }
 
     pub fn process_rows(&self) -> Vec<Row> {
