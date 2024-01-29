@@ -1,4 +1,5 @@
 use crate::state::*;
+use image::DynamicImage;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     prelude::*,
@@ -7,6 +8,7 @@ use ratatui::{
     widgets::{canvas::*, Block, Borders, Clear, Padding, Row, Table, TableState},
     Frame,
 };
+use ratatui_image::StatefulImage;
 
 fn render_metadata_table(
     app: &mut Application,
@@ -118,6 +120,18 @@ fn render_keybind_popup(app: &mut Application, frame: &mut Frame) {
     )
 }
 
+fn render_image(app: &mut Application, frame: &mut Frame, area: Rect) {
+    // let collapsed_top_border_set = symbols::border::Set {
+    //     top_left: symbols::line::NORMAL.vertical_right,
+    //     top_right: symbols::line::NORMAL.vertical_left,
+    //     // bottom_left: symbols::line::NORMAL.horizontal_up,
+    //     ..symbols::border::PLAIN
+    // };
+
+    let image = StatefulImage::new(None);
+    frame.render_stateful_widget(image, area, &mut app.image);
+}
+
 pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableState) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
@@ -126,6 +140,7 @@ pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableSta
 
     render_metadata_table(app, frame, table_state, layout[0]);
     render_globe(app, frame, layout[1]);
+    // render_image(app, frame, layout[1]);
 
     if app.show_keybinds {
         render_keybind_popup(app, frame);

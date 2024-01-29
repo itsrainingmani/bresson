@@ -6,6 +6,7 @@ use tui::restore_terminal;
 
 use crossterm::event::{self, KeyCode, KeyEventKind};
 use ratatui::{prelude::*, widgets::TableState};
+// use ratatui_image::picker::Picker;
 
 fn main() -> Result<()> {
     if std::env::args().len() < 2 {
