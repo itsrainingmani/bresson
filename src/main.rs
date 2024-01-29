@@ -1,5 +1,5 @@
 use anyhow::Result;
-use bresson::globe::{self, Globe};
+use bresson::globe::Globe;
 use bresson::{state::*, ui::*};
 use std::path::Path;
 use tui::restore_terminal;
