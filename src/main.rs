@@ -69,6 +69,9 @@ fn main() -> Result<()> {
                                     'o' | 'O' => {
                                         // Show Original Data
                                         app.modified_fields = app.original_fields.clone();
+                                        if app.has_gps && !app.should_rotate {
+                                            app.transform_coordinates();
+                                        }
                                         app.status_msg = String::from("Showing Original Data");
                                     }
                                     'r' => {
@@ -77,7 +80,7 @@ fn main() -> Result<()> {
                                             Some(index) => {
                                                 app.randomize(index);
                                                 app.status_msg =
-                                                    String::from("Randomizing selection");
+                                                    String::from("Randomized selection");
                                             }
                                             None => {}
                                         }
@@ -85,12 +88,13 @@ fn main() -> Result<()> {
                                     'R' => {
                                         // Randomize all fields (generalize over the individual field)
                                         app.randomize_all();
-                                        app.status_msg = String::from("Randomizing all");
+                                        app.status_msg = String::from("Randomized all");
                                     }
                                     'c' | 'C' => app.clear_fields(),
                                     's' | 'S' => {
                                         // Save the state into a file copy
-                                        app.save_state()?
+                                        app.save_state()?;
+                                        app.status_msg = String::from("Saved a copy");
                                     }
                                     '?' => {
                                         // Display a popup window with keybinds
@@ -100,6 +104,7 @@ fn main() -> Result<()> {
                                     'q' => break,
                                     '+' => app.camera_zoom_increase(),
                                     '-' => app.camera_zoom_decrease(),
+                                    ' ' => app.toggle_rotate(),
                                     _ => {}
                                 },
                                 KeyCode::Esc => {
@@ -137,7 +142,7 @@ fn main() -> Result<()> {
                     }
                 }
 
-                if !app.has_gps {
+                if app.should_rotate {
                     app.rotate_globe();
                 }
             }

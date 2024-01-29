@@ -83,6 +83,7 @@ pub struct Application {
 
     pub camera_settings: CameraSettings,
     pub show_keybinds: bool,
+    pub should_rotate: bool,
 }
 
 pub fn random_datetime(rng: &mut ThreadRng) -> String {
@@ -234,6 +235,7 @@ impl Application {
                 beta: 0.,
             },
             show_keybinds: false,
+            should_rotate: false || !has_gps,
         })
     }
 
@@ -244,11 +246,12 @@ impl Application {
             Row::new(vec!["R", "Randomize all Metadata"]),
             Row::new(vec!["c | C", "Clear All Metadata"]),
             Row::new(vec!["s | S", "Save modified metadata"]),
+            Row::new(vec!["<Spc>", "Toggle Globe Rotation"]),
             Row::new(vec!["?", "Show/Dismiss Keybind Info"]),
         ])
     }
 
-    pub fn process_rows(&self) -> Vec<Row> {
+    pub fn process_rows(&self, term_width: u16) -> Vec<Row> {
         let mut exif_data_rows = Vec::new();
 
         for f in &self.modified_fields {
@@ -257,7 +260,7 @@ impl Application {
                 match &f.value {
                     Value::Ascii(x) => {
                         if x.iter().all(|x| x.len() > 0) {
-                            exif_data_rows.push(Row::new(vec![
+                            exif_data_rows.push(vec![
                                 f.tag.to_string(),
                                 f.display_value()
                                     .with_unit(&self.exif)
@@ -265,14 +268,13 @@ impl Application {
                                     .trim_matches('"')
                                     .to_string()
                                     .replace("\\x00", ""),
-                            ]));
+                            ]);
                         } else {
-                            exif_data_rows
-                                .push(Row::new(vec![f.tag.to_string(), String::from("")]));
+                            exif_data_rows.push(vec![f.tag.to_string(), String::from("")]);
                         }
                     }
                     _ => {
-                        exif_data_rows.push(Row::new(vec![
+                        exif_data_rows.push(vec![
                             f.tag.to_string(),
                             f.display_value()
                                 .with_unit(&self.exif)
@@ -280,13 +282,23 @@ impl Application {
                                 .trim_matches('"')
                                 .to_string()
                                 .replace("\\x00", ""),
-                        ]));
+                        ]);
                     }
                 }
             }
         }
 
         exif_data_rows
+            .iter()
+            .map(|data| {
+                let mut height = 1;
+                let total_length: usize = data.iter().map(|d| d.len()).sum();
+                if total_length as u16 >= term_width {
+                    height += 1
+                };
+                Row::new(data.clone()).height(height)
+            })
+            .collect::<Vec<Row>>()
     }
 
     pub fn rotate_globe(&mut self) {
@@ -623,6 +635,10 @@ impl Application {
         };
         let buf = self.exif.buf();
         Some(&buf[offset..offset + len])
+    }
+
+    pub fn toggle_rotate(&mut self) {
+        self.should_rotate = !self.should_rotate;
     }
 }
 

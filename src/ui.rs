@@ -15,8 +15,8 @@ fn render_metadata_table(
     table_state: &mut TableState,
     area: Rect,
 ) {
-    let widths = [Constraint::Length(30), Constraint::Length(70)];
-    let exif_table = Table::new(app.process_rows(), widths).column_spacing(1);
+    let widths = [Constraint::Min(20), Constraint::Min(80)];
+    let exif_table = Table::new(app.process_rows(frame.size().width), widths).column_spacing(1);
 
     frame.render_stateful_widget(
         exif_table
@@ -85,6 +85,7 @@ fn render_globe(app: &mut Application, frame: &mut Frame, area: Rect) {
                             x => {
                                 // Only useful when there is no z-axis panning going on
                                 let long_lat_color = if app.has_gps
+                                    && !app.should_rotate
                                     && i == (size_y / 2) - 1
                                     && j == (size_x / 2) - 1
                                 {
