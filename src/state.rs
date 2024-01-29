@@ -111,25 +111,6 @@ impl Application {
         let mut exif_data_rows: ExifTags = Vec::new();
         for f in exif.fields() {
             match f.tag {
-                // Tag::Make
-                // | Tag::Model
-                // | Tag::Software
-                // | Tag::DateTimeOriginal
-                // | Tag::CameraOwnerName
-                // | Tag::ExposureTime
-                // | Tag::FNumber
-                // | Tag::FocalLength
-                // | Tag::ISOSpeed
-                // | Tag::Humidity
-                // | Tag::CameraElevationAngle
-                // | Tag::Pressure
-                // | Tag::Compression
-                // | Tag::Contrast
-                // // | Tag::Orientation
-                // | Tag::ColorSpace
-                // | Tag::MeteringMode => {
-                //     exif_data_rows.push(f.clone());
-                // }
                 Tag::GPSLatitude | Tag::GPSLongitude => {
                     has_gps = true;
                     exif_data_rows.push(f.clone());
@@ -493,7 +474,7 @@ impl Application {
         // take -> creates an adapter which will read at most "limit" bytes from it
         let exif_buf = self.exif.buf();
         let size_of_exif_buf = exif_buf.len();
-        eprintln!("Size of og exif buf: {}", size_of_exif_buf);
+        // eprintln!("Size of og exif buf: {}", size_of_exif_buf);
 
         // Write exif version to a new exif data buffer
         let mut exif_writer = Writer::new();
