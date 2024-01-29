@@ -69,17 +69,23 @@ fn main() -> Result<()> {
                                     'o' | 'O' => {
                                         // Show Original Data
                                         app.modified_fields = app.original_fields.clone();
+                                        app.status_msg = String::from("Showing Original Data");
                                     }
                                     'r' => {
                                         // Only randomize the selected element based on table state
                                         match table_state.selected() {
-                                            Some(index) => app.randomize(index),
+                                            Some(index) => {
+                                                app.randomize(index);
+                                                app.status_msg =
+                                                    String::from("Randomizing selection");
+                                            }
                                             None => {}
                                         }
                                     }
                                     'R' => {
                                         // Randomize all fields (generalize over the individual field)
-                                        app.randomize_all()
+                                        app.randomize_all();
+                                        app.status_msg = String::from("Randomizing all");
                                     }
                                     'c' | 'C' => app.clear_fields(),
                                     's' | 'S' => {

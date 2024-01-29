@@ -4,7 +4,7 @@ use ratatui::{
     prelude::*,
     style::{Color, Modifier, Style},
     symbols,
-    widgets::{canvas::*, Block, Borders, Clear, Padding, Row, Table, TableState},
+    widgets::{canvas::*, Block, Borders, Clear, Padding, Paragraph, Row, Table, TableState},
     Frame,
 };
 use ratatui_image::{Image, StatefulImage};
@@ -151,16 +151,35 @@ fn render_keybind_popup(app: &mut Application, frame: &mut Frame) {
 pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableState) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(vec![Constraint::Percentage(40), Constraint::Percentage(60)])
+        .constraints(vec![
+            Constraint::Percentage(40),
+            Constraint::Percentage(55),
+            Constraint::Max(5),
+        ])
         .split(frame.size());
 
     render_metadata_table(app, frame, table_state, layout[0]);
     render_globe(app, frame, layout[1]);
     // render_image(app, frame, layout[1]);
+    if app.status_msg.len() > 0 {
+        render_status_msg(app, frame, layout[2]);
+    }
 
     if app.show_keybinds {
         render_keybind_popup(app, frame);
     }
+}
+
+fn render_status_msg(app: &mut Application, frame: &mut Frame, area: Rect) {
+    frame.render_widget(
+        Paragraph::new(app.status_msg.clone()).block(
+            Block::new()
+                .title("Status")
+                .title_style(Style::new().bold())
+                .borders(Borders::ALL),
+        ),
+        area,
+    );
 }
 
 /// # Usage
