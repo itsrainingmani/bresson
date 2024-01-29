@@ -1,3 +1,4 @@
+use crate::globe::{self};
 use crate::state::*;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
@@ -7,6 +8,7 @@ use ratatui::{
     widgets::{canvas::*, Block, Borders, Clear, Padding, Row, Table, TableState},
     Frame,
 };
+use ratatui_image::StatefulImage;
 
 fn render_metadata_table(
     app: &mut Application,
@@ -72,7 +74,7 @@ fn render_globe(app: &mut Application, frame: &mut Frame, area: Rect) {
                 ctx.layer();
                 let mut globe_canvas = globe::Canvas::new(75, 50, Some((1, 1)));
                 globe_canvas.clear();
-                app.globe.render_on(&mut globe_canvas);
+                app.globe.render_sphere(&mut globe_canvas);
                 let (size_x, size_y) = globe_canvas.get_size();
                 // default character size is 4 by 8
                 for i in 0..size_y {
@@ -118,6 +120,18 @@ fn render_keybind_popup(app: &mut Application, frame: &mut Frame) {
     )
 }
 
+fn render_image(app: &mut Application, frame: &mut Frame, area: Rect) {
+    // let collapsed_top_border_set = symbols::border::Set {
+    //     top_left: symbols::line::NORMAL.vertical_right,
+    //     top_right: symbols::line::NORMAL.vertical_left,
+    //     // bottom_left: symbols::line::NORMAL.horizontal_up,
+    //     ..symbols::border::PLAIN
+    // };
+
+    let image = StatefulImage::new(None);
+    frame.render_stateful_widget(image, area, &mut app.image);
+}
+
 pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableState) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
@@ -126,6 +140,7 @@ pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableSta
 
     render_metadata_table(app, frame, table_state, layout[0]);
     render_globe(app, frame, layout[1]);
+    // render_image(app, frame, layout[1]);
 
     if app.show_keybinds {
         render_keybind_popup(app, frame);

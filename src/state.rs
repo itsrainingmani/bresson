@@ -1,15 +1,18 @@
 use crate::globe::Globe;
+use crate::utils::floyd_steinberg;
 use anyhow::Result;
 use chrono::prelude::*;
 use core::f32;
 use exif::{experimental::Writer, Exif, Field, In, Rational, SRational, Tag, Value};
 use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
 use ratatui::widgets::Row;
+use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
 use std::{
     collections::HashSet,
     io::{self, Read, Write},
     path::{Path, PathBuf},
 };
+
 // Step one is taking a given image file and read out some of the super basic metadata about it
 
 #[derive(Debug, Clone, Copy)]
@@ -61,6 +64,7 @@ pub type ExifTags = Vec<Field>;
 
 pub struct Application {
     pub path_to_image: PathBuf,
+    pub image: Box<dyn StatefulProtocol>,
     pub exif: Exif,
     pub original_fields: ExifTags,
     pub modified_fields: ExifTags,
@@ -90,13 +94,19 @@ pub fn random_datetime(rng: &mut ThreadRng) -> String {
 impl Application {
     pub fn new(path_to_image: &Path, g: Globe, app_mode: AppMode) -> Result<Self> {
         let file = std::fs::File::open(path_to_image)?;
-
         // println!("Size of img is {}", file.metadata()?.len());
 
         let mut bufreader = std::io::BufReader::new(&file);
         let exifreader = exif::Reader::new();
         let exif = exifreader.read_from_container(&mut bufreader)?;
         let mut has_gps = false;
+
+        let mut picker = Picker::new((8, 12));
+        picker.guess_protocol();
+        let mut dyn_img = image::io::Reader::open(path_to_image)?.decode()?;
+        dyn_img = floyd_steinberg(dyn_img);
+
+        let image = picker.new_resize_protocol(dyn_img);
 
         let tags_to_randomize = HashSet::from([
             Tag::Make,
@@ -195,6 +205,7 @@ impl Application {
 
         Ok(Self {
             path_to_image: path_to_image.to_path_buf(),
+            image,
             exif,
             original_fields: exif_data_rows.clone(),
             modified_fields: exif_data_rows.clone(),
@@ -582,7 +593,7 @@ impl Application {
         Some(strips)
     }
 
-    fn get_jpeg(&self, ifd_num: In) -> Option<&[u8]> {
+    pub fn get_jpeg(&self, ifd_num: In) -> Option<&[u8]> {
         let offset = self
             .exif
             .get_field(Tag::JPEGInterchangeFormat, ifd_num)
