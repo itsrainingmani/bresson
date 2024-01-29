@@ -28,9 +28,9 @@ fn main() -> Result<()> {
 
     let image_file = Path::new(&image_arg);
     if image_file.is_file() {
-        println!("Image: {}\n", image_file.display());
+        eprintln!("Image: {}\n", image_file.display());
     } else {
-        println!("Image not present");
+        eprintln!("Image not present");
         return Ok(());
     }
     let cam_zoom = 1.5;
@@ -58,6 +58,8 @@ fn main() -> Result<()> {
                 // Go to the coordinates extracted from the input
                 app.transform_coordinates();
             }
+
+            app.show_message(format!("Opened {:?}", app.path_to_image.clone()));
 
             loop {
                 terminal.draw(|frame| view(&mut app, frame, &mut table_state))?;
@@ -89,11 +91,13 @@ fn main() -> Result<()> {
                                         app.randomize_all();
                                         app.show_message("Randomized all".to_owned());
                                     }
-                                    'c' | 'C' => app.clear_fields(),
+                                    'c' | 'C' => {
+                                        app.clear_fields();
+                                        app.show_message("Cleared Metadata".to_owned())
+                                    }
                                     's' | 'S' => {
                                         // Save the state into a file copy
                                         app.save_state()?;
-                                        app.show_message("Saved a copy".to_owned());
                                     }
                                     '?' => {
                                         // Display a popup window with keybinds
