@@ -6,7 +6,10 @@ use exif::{experimental::Writer, Exif, Field, In, Rational, SRational, Tag, Valu
 use globe::Globe;
 use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
 use ratatui::widgets::Row;
-use ratatui_image::{picker::Picker, protocol::StatefulProtocol};
+use ratatui_image::{
+    picker::Picker,
+    protocol::{ImageSource, Protocol, StatefulProtocol},
+};
 use std::{
     collections::HashSet,
     io::{self, Read, Write},
@@ -64,15 +67,18 @@ pub type ExifTags = Vec<Field>;
 
 pub struct Application {
     pub path_to_image: PathBuf,
-    pub image: Box<dyn StatefulProtocol>,
+    // pub image_source: ImageSource,
+    // pub image_static: Box<dyn StatefulProtocol>,
     pub exif: Exif,
     pub original_fields: ExifTags,
     pub modified_fields: ExifTags,
     pub tags_to_randomize: HashSet<Tag>,
+
     pub globe: Globe,
     pub app_mode: AppMode,
     pub has_gps: bool,
     pub gps_info: GPSInfo,
+
     pub camera_settings: CameraSettings,
     pub show_keybinds: bool,
 }
@@ -101,12 +107,16 @@ impl Application {
         let exif = exifreader.read_from_container(&mut bufreader)?;
         let mut has_gps = false;
 
-        let mut picker = Picker::new((8, 12));
-        picker.guess_protocol();
-        let mut dyn_img = image::io::Reader::open(path_to_image)?.decode()?;
-        dyn_img = floyd_steinberg(dyn_img);
+        // let dyn_img = image::io::Reader::open(path_to_image)?.decode()?;
 
-        let image = picker.new_resize_protocol(dyn_img);
+        // let mut picker = Picker::new((8, 12));
+        // let mut picker = Picker::from_termios().unwrap();
+        // picker.guess_protocol();
+        // dyn_img = floyd_steinberg(dyn_img);
+        //
+        // let image_source = ImageSource::new(dyn_img.clone(), picker.font_size);
+
+        // let image = picker.new_resize_protocol(dyn_img);
 
         let tags_to_randomize = HashSet::from([
             Tag::Make,
@@ -205,7 +215,8 @@ impl Application {
 
         Ok(Self {
             path_to_image: path_to_image.to_path_buf(),
-            image,
+            // image_source,
+            // image_static: image,
             exif,
             original_fields: exif_data_rows.clone(),
             modified_fields: exif_data_rows.clone(),

@@ -1,5 +1,4 @@
 use crate::state::*;
-use image::DynamicImage;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     prelude::*,
@@ -8,7 +7,7 @@ use ratatui::{
     widgets::{canvas::*, Block, Borders, Clear, Padding, Row, Table, TableState},
     Frame,
 };
-use ratatui_image::StatefulImage;
+use ratatui_image::{Image, StatefulImage};
 
 fn render_metadata_table(
     app: &mut Application,
@@ -120,17 +119,34 @@ fn render_keybind_popup(app: &mut Application, frame: &mut Frame) {
     )
 }
 
-fn render_image(app: &mut Application, frame: &mut Frame, area: Rect) {
-    // let collapsed_top_border_set = symbols::border::Set {
-    //     top_left: symbols::line::NORMAL.vertical_right,
-    //     top_right: symbols::line::NORMAL.vertical_left,
-    //     // bottom_left: symbols::line::NORMAL.horizontal_up,
-    //     ..symbols::border::PLAIN
-    // };
-
-    let image = StatefulImage::new(None);
-    frame.render_stateful_widget(image, area, &mut app.image);
-}
+// fn render_image(app: &mut Application, frame: &mut Frame, area: Rect) {
+//     let collapsed_top_border_set = symbols::border::Set {
+//         top_left: symbols::line::NORMAL.vertical_right,
+//         top_right: symbols::line::NORMAL.vertical_left,
+//         // bottom_left: symbols::line::NORMAL.horizontal_up,
+//         ..symbols::border::PLAIN
+//     };
+//
+//     // let within_image_block = Layout::default().direction(Direction::Vertical).constraints([
+//     // 	Constraint::Percentage(frame.size())
+//     // ]);
+//
+//     let block = Block::default()
+//         .title("Thumbnail")
+//         .title_style(Style::new().bold())
+//         .border_set(collapsed_top_border_set)
+//         .borders(Borders::ALL);
+//     frame.render_widget(block.clone(), area);
+//
+//     let rect = centered_rect(block.inner(area), 50, 100);
+//
+//     let image = StatefulImage::new(None).resize(ratatui_image::Resize::Fit);
+//     // let image = Image::new(app.image_static.as_ref());
+//
+//     frame.render_stateful_widget(image, rect, &mut app.image_static);
+//
+//     // frame.render_widget(image, area)
+// }
 
 pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableState) {
     let layout = Layout::default()
