@@ -125,6 +125,8 @@ impl Application {
             Tag::Make,
             Tag::Model,
             Tag::DateTimeOriginal,
+            Tag::DateTime,
+            Tag::DateTimeDigitized,
             Tag::ExposureTime,
             Tag::FNumber,
             Tag::MeteringMode,
@@ -414,13 +416,25 @@ impl Application {
                         }]);
                     }
                     Tag::MeteringMode => f.value = Value::Short(vec![rng.gen_range(1..=6)]),
-                    Tag::DateTimeOriginal => {
-                        f.value = Value::Ascii(vec![Vec::from(random_datetime(&mut rng))]);
+                    Tag::DateTimeOriginal | Tag::DateTime | Tag::DateTimeDigitized => {
+                        // f.value = Value::Ascii(vec![Vec::from(random_datetime(&mut rng))]);
+                        self.sync_date_fields(random_datetime(&mut rng))
                     }
                     _ => {}
                 }
             }
             None => {}
+        }
+    }
+
+    fn sync_date_fields(&mut self, new_dt: String) {
+        for f in self.modified_fields.iter_mut() {
+            match f.tag {
+                Tag::DateTime | Tag::DateTimeOriginal | Tag::DateTimeDigitized => {
+                    f.value = Value::Ascii(vec![Vec::from(new_dt.clone())]);
+                }
+                _ => {}
+            }
         }
     }
 
@@ -637,8 +651,16 @@ impl Application {
         Some(&buf[offset..offset + len])
     }
 
+    pub fn show_message(&mut self, msg: String) {
+        self.status_msg = msg;
+    }
+
     pub fn toggle_rotate(&mut self) {
         self.should_rotate = !self.should_rotate;
+    }
+
+    pub fn toggle_keybinds(&mut self) {
+        self.show_keybinds = !self.show_keybinds;
     }
 }
 

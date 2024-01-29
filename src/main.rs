@@ -72,15 +72,14 @@ fn main() -> Result<()> {
                                         if app.has_gps && !app.should_rotate {
                                             app.transform_coordinates();
                                         }
-                                        app.status_msg = String::from("Showing Original Data");
+                                        app.show_message("Showing Original Data".to_owned());
                                     }
                                     'r' => {
                                         // Only randomize the selected element based on table state
                                         match table_state.selected() {
                                             Some(index) => {
                                                 app.randomize(index);
-                                                app.status_msg =
-                                                    String::from("Randomized selection");
+                                                app.show_message("Randomized selection".to_owned());
                                             }
                                             None => {}
                                         }
@@ -88,18 +87,18 @@ fn main() -> Result<()> {
                                     'R' => {
                                         // Randomize all fields (generalize over the individual field)
                                         app.randomize_all();
-                                        app.status_msg = String::from("Randomized all");
+                                        app.show_message("Randomized all".to_owned());
                                     }
                                     'c' | 'C' => app.clear_fields(),
                                     's' | 'S' => {
                                         // Save the state into a file copy
                                         app.save_state()?;
-                                        app.status_msg = String::from("Saved a copy");
+                                        app.show_message("Saved a copy".to_owned());
                                     }
                                     '?' => {
                                         // Display a popup window with keybinds
                                         // toggle the show_keybinds state
-                                        app.show_keybinds = !app.show_keybinds
+                                        app.toggle_keybinds();
                                     }
                                     'q' => break,
                                     '+' => app.camera_zoom_increase(),
@@ -108,8 +107,13 @@ fn main() -> Result<()> {
                                     _ => {}
                                 },
                                 KeyCode::Esc => {
+                                    // If the keybinds pop up is being shown, exit that
+                                    // first
                                     if app.show_keybinds {
-                                        app.show_keybinds = false;
+                                        app.toggle_keybinds();
+                                    } else {
+                                        // If we are on the main screen, exit the app
+                                        break;
                                     }
                                 }
                                 KeyCode::Down => match table_state.selected() {

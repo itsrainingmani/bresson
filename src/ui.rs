@@ -15,7 +15,7 @@ fn render_metadata_table(
     table_state: &mut TableState,
     area: Rect,
 ) {
-    let widths = [Constraint::Min(20), Constraint::Min(80)];
+    let widths = [Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)];
     let exif_table = Table::new(app.process_rows(frame.size().width), widths).column_spacing(1);
 
     frame.render_stateful_widget(
@@ -162,9 +162,7 @@ pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableSta
     render_metadata_table(app, frame, table_state, layout[0]);
     render_globe(app, frame, layout[1]);
     // render_image(app, frame, layout[1]);
-    if app.status_msg.len() > 0 {
-        render_status_msg(app, frame, layout[2]);
-    }
+    render_status_msg(app, frame, layout[2]);
 
     if app.show_keybinds {
         render_keybind_popup(app, frame);
