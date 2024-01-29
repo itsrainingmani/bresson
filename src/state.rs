@@ -243,11 +243,11 @@ impl Application {
 
     pub fn keybind_rows(&self) -> Vec<Row> {
         Vec::from([
-            Row::new(vec!["q", "Quit"]),
+            Row::new(vec!["q | <Esc>", "Quit"]),
             Row::new(vec!["r", "Randomize selected Metadata"]),
             Row::new(vec!["R", "Randomize all Metadata"]),
             Row::new(vec!["c | C", "Clear All Metadata"]),
-            Row::new(vec!["s | S", "Save modified metadata"]),
+            Row::new(vec!["s | S", "Save a Copy"]),
             Row::new(vec!["<Spc>", "Toggle Globe Rotation"]),
             Row::new(vec!["?", "Show/Dismiss Keybind Info"]),
         ])
@@ -557,7 +557,7 @@ impl Application {
         }
         exif_writer.write(&mut new_exif_buf, self.exif.little_endian())?;
         let new_exif_buf = new_exif_buf.clone().into_inner();
-        eprintln!("Size of new exif buf: {}", new_exif_buf.len());
+        // eprintln!("Size of new exif buf: {}", new_exif_buf.len());
 
         // Open the Image File and read into a buffer
         let file = std::fs::File::open(&self.path_to_image)?;
@@ -577,12 +577,15 @@ impl Application {
         // exif_header.extend(exif_buf);
         let img_data = &img_buf[position_of_exif + size_of_exif_buf..];
         exif_header.extend_from_slice(&img_data);
-        eprintln!("Position of start of exif: {}", position_of_exif);
-        eprintln!("{}", exif_header.len());
+        // eprintln!("Position of start of exif: {}", position_of_exif);
+        // eprintln!("{}", exif_header.len());
 
         // Create a file copy using the original name of the file
-        let mut copy_file = std::fs::File::create(self.create_copy_file_name())?;
+        let copy_file_name = self.create_copy_file_name();
+        let mut copy_file = std::fs::File::create(copy_file_name.clone())?;
         copy_file.write_all(&exif_header.as_slice())?;
+
+        self.show_message(format!("Saved a copy - {:?}", copy_file_name).to_owned());
 
         Ok(())
     }
