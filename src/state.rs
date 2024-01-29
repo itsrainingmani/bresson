@@ -74,6 +74,8 @@ pub struct Application {
     pub modified_fields: ExifTags,
     pub tags_to_randomize: HashSet<Tag>,
 
+    pub status_msg: String,
+
     pub globe: Globe,
     pub app_mode: AppMode,
     pub has_gps: bool,
@@ -221,6 +223,7 @@ impl Application {
             original_fields: exif_data_rows.clone(),
             modified_fields: exif_data_rows.clone(),
             tags_to_randomize,
+            status_msg: String::new(),
             globe: g,
             app_mode,
             has_gps,
@@ -484,7 +487,7 @@ impl Application {
         let mut copy_file_path = self.path_to_image.clone();
         let copy_file_name = copy_file_path.file_name().expect("Valid File Name");
         copy_file_path.set_file_name(format!("copy-{}", copy_file_name.to_str().unwrap()));
-        println!("{}", copy_file_path.display());
+        // println!("{}", copy_file_path.display());
 
         copy_file_path
     }
