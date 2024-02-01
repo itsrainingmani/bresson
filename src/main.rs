@@ -65,7 +65,7 @@ fn main() -> Result<()> {
                 terminal.draw(|frame| view(&mut app, frame, &mut table_state))?;
                 if event::poll(std::time::Duration::from_millis(16))? {
                     if let event::Event::Key(key) = event::read()? {
-                        if key.kind == KeyEventKind::Press {
+                        if key.kind == KeyEventKind::Press && !app.show_keybinds {
                             match key.code {
                                 KeyCode::Char(c) => match c {
                                     'o' | 'O' => {
@@ -110,14 +110,7 @@ fn main() -> Result<()> {
                                     _ => {}
                                 },
                                 KeyCode::Esc => {
-                                    // If the keybinds pop up is being shown, exit that
-                                    // first
-                                    if app.show_keybinds {
-                                        app.toggle_keybinds();
-                                    } else {
-                                        // If we are on the main screen, exit the app
-                                        break;
-                                    }
+                                    break;
                                 }
                                 KeyCode::Down => match table_state.selected() {
                                     Some(i) => {
@@ -143,6 +136,21 @@ fn main() -> Result<()> {
                                             Some(app.modified_fields.len() - 1)
                                     }
                                 },
+                                _ => {}
+                            }
+                        } else {
+                            match key.code {
+                                KeyCode::Char(c) => match c {
+                                    '?' => {
+                                        // Display a popup window with keybinds
+                                        // toggle the show_keybinds state
+                                        app.toggle_keybinds();
+                                    }
+                                    _ => {}
+                                },
+                                KeyCode::Esc => {
+                                    app.toggle_keybinds();
+                                }
                                 _ => {}
                             }
                         }
