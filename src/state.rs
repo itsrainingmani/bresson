@@ -393,6 +393,12 @@ impl Application {
             "RED Digital Cinema",
         ];
         let f_numbers = vec![1, 2, 3, 4, 5, 8, 11, 16, 22, 32, 45, 64];
+        let tag_at_index = self.modified_fields.get(index).unwrap().tag;
+        if self.tags_to_randomize.contains(&tag_at_index) {
+            self.show_message(format!("Randomized {}", tag_at_index.to_string()).to_owned());
+        } else {
+            self.show_message(format!("Cannot randomize {}", tag_at_index.to_string()).to_owned())
+        }
 
         match self.modified_fields.get_mut(index) {
             Some(f) => {

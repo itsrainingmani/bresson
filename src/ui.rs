@@ -25,8 +25,7 @@ fn render_metadata_table(
                     .title("Metadata")
                     .title_style(Style::new().bold())
                     .border_set(symbols::border::PLAIN)
-                    .borders(Borders::TOP | Borders::RIGHT | Borders::LEFT)
-                    .padding(Padding::uniform(1)),
+                    .borders(Borders::TOP | Borders::RIGHT | Borders::LEFT), // .padding(Padding::uniform(1)),
             )
             .header(Row::new(vec!["Tag", "Data"]).bold().underlined())
             // .style(Style::new().bold())

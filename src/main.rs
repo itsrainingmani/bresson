@@ -81,7 +81,6 @@ fn main() -> Result<()> {
                                         match table_state.selected() {
                                             Some(index) => {
                                                 app.randomize(index);
-                                                app.show_message("Randomized selection".to_owned());
                                             }
                                             None => {}
                                         }
