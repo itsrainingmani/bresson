@@ -247,6 +247,7 @@ impl Application {
             Row::new(vec!["r", "Randomize selected Metadata"]),
             Row::new(vec!["R", "Randomize all Metadata"]),
             Row::new(vec!["c | C", "Clear All Metadata"]),
+            Row::new(vec!["o | O", "Restore Metadata"]),
             Row::new(vec!["s | S", "Save a Copy"]),
             Row::new(vec!["<Spc>", "Toggle Globe Rotation"]),
             Row::new(vec!["?", "Show/Dismiss Keybind Info"]),
