@@ -23,29 +23,34 @@ Within TUI Mode, all of the metadata is displayed inside a table and with the ap
 
 Here is a list of Keybinds for TUI mode -
 
-- `c` | `C` to clear all metadata
-- `r` to randomize the highlighted field
-- `R` to randomize all fields (all here refers to fields that can be randomized)
-- `s` | `S` to save a copy of the modified metadata
-- `o` | `O` to display the original metadata for the image
+| Keybind           | Description                                                    |
+|-------------------|----------------------------------------------------------------|
+| `c` \| `C`        | Clear all metadata                                             |
+| `r`               | Randomize the highlighted field                                |
+| `R`               | Randomize all fields                                           |
+| `o` \| `O`        | Display the original metadata for the image                    |
+| `s` \| `S`        | Save a copy of the modified metadata                           |
+| `q` \| `<Esc>`    | Exit the app                                                   |
+
+
 
 ## Metadata that can be Randomzied
 
-Make
-Model
-DateTime
-XResolution
-YResolution
-Software
-ModifyDate
-Artist
-Copyright
-ExposureTime
-FNumber
-FocalLength
-ISO
-MeteringMode
-GPSLatitude
-GPSLongitude
-GPSLatitudeRef
-GPSLongitudeRef
+- Make
+- Model
+- DateTime
+- XResolution
+- YResolution
+- Software
+- ModifyDate
+- Artist
+- Copyright
+- ExposureTime
+- FNumber
+- FocalLength
+- ISO
+- MeteringMode
+- GPSLatitude
+- GPSLongitude
+- GPSLatitudeRef
+- GPSLongitudeRef
