@@ -4,10 +4,13 @@ use ratatui::{
     prelude::*,
     style::{Color, Modifier, Style},
     symbols,
-    widgets::{canvas::*, Block, Borders, Clear, Padding, Paragraph, Row, Table, TableState},
+    widgets::{
+        canvas::*, Block, Borders, Clear, Padding, Paragraph, Row, StatefulWidget, Table,
+        TableState,
+    },
     Frame,
 };
-use ratatui_image::{Image, StatefulImage};
+use ratatui_image::{Image, Resize, StatefulImage};
 
 fn render_metadata_table(
     app: &mut Application,
@@ -119,34 +122,54 @@ fn render_keybind_popup(app: &mut Application, frame: &mut Frame) {
     )
 }
 
-// fn render_image(app: &mut Application, frame: &mut Frame, area: Rect) {
-//     let collapsed_top_border_set = symbols::border::Set {
-//         top_left: symbols::line::NORMAL.vertical_right,
-//         top_right: symbols::line::NORMAL.vertical_left,
-//         // bottom_left: symbols::line::NORMAL.horizontal_up,
-//         ..symbols::border::PLAIN
-//     };
-//
-//     // let within_image_block = Layout::default().direction(Direction::Vertical).constraints([
-//     // 	Constraint::Percentage(frame.size())
-//     // ]);
-//
-//     let block = Block::default()
-//         .title("Thumbnail")
-//         .title_style(Style::new().bold())
-//         .border_set(collapsed_top_border_set)
-//         .borders(Borders::ALL);
-//     frame.render_widget(block.clone(), area);
-//
-//     let rect = centered_rect(block.inner(area), 50, 100);
-//
-//     let image = StatefulImage::new(None).resize(ratatui_image::Resize::Fit);
-//     // let image = Image::new(app.image_static.as_ref());
-//
-//     frame.render_stateful_widget(image, rect, &mut app.image_static);
-//
-//     // frame.render_widget(image, area)
-// }
+impl StatefulWidget for ThreadImage {
+    type State = ThreadProtocol;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        state.inner = match state.inner.take() {
+            // We have the `protocol` and should either resize or render.
+            Some(mut protocol) => {
+                // If it needs resizing (grow or shrink) then send it away instead of rendering.
+                if let Some(rect) = protocol.needs_resize(&self.resize, area) {
+                    state.tx.send((protocol, self.resize, rect)).unwrap();
+                    None
+                } else {
+                    protocol.render(area, buf);
+                    Some(protocol)
+                }
+            }
+            // We are waiting to get back the protocol.
+            None => None,
+        };
+    }
+}
+
+fn render_image(app: &mut Application, frame: &mut Frame, area: Rect) {
+    let collapsed_top_border_set = symbols::border::Set {
+        top_left: symbols::line::NORMAL.vertical_right,
+        top_right: symbols::line::NORMAL.vertical_left,
+        // bottom_left: symbols::line::NORMAL.horizontal_up,
+        ..symbols::border::PLAIN
+    };
+
+    // let within_image_block = Layout::default().direction(Direction::Vertical).constraints([
+    // 	Constraint::Percentage(frame.size())
+    // ]);
+
+    let block = Block::default()
+        .title("Thumbnail")
+        .title_style(Style::new().bold())
+        .border_set(collapsed_top_border_set)
+        .borders(Borders::ALL);
+
+    let rect = centered_rect(block.inner(area), 50, 100);
+    let image = ThreadImage::new().resize(Resize::Fit);
+    // let image = Image::new(app.image_static.as_ref());
+
+    frame.render_stateful_widget(image, rect, &mut app.async_state);
+    frame.render_widget(block.clone(), area);
+    // frame.render_widget(image, area)
+}
 
 pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableState) {
     let layout = Layout::default()
