@@ -1,7 +1,7 @@
 use anyhow::Result;
 use bresson::globe::Globe;
 use bresson::{state::*, ui::*};
-use std::path::Path;
+use std::{path::Path, sync::mpsc};
 use tui::restore_terminal;
 
 use crossterm::event::{self, KeyCode, KeyEventKind};
@@ -42,6 +42,11 @@ fn main() -> Result<()> {
     let mut app = Application::new(image_file, globe, app_mode)?;
     let mut table_state = TableState::new().with_selected(Some(0));
 
+    // let (tx_main, rec_main) = mpsc::channel();
+    // let tx_main_render = tx_main.clone();
+    // thread::spawn(move || loop {
+    //     if let Ok((mut protocol, resize, area)) =
+    // })
     match app.app_mode {
         AppMode::CommandLine => {
             // Print out the Exif Data in the CLI

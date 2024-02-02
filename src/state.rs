@@ -4,16 +4,19 @@ use anyhow::Result;
 use chrono::prelude::*;
 use core::f32;
 use exif::{experimental::Writer, Exif, Field, In, Rational, SRational, Tag, Value};
+use image::Rgb;
 use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
-use ratatui::widgets::Row;
-use ratatui_image::{
-    picker::Picker,
-    protocol::{ImageSource, Protocol, StatefulProtocol},
+use ratatui::{
+    buffer::Buffer,
+    layout::Rect,
+    widgets::{Row, StatefulWidget},
 };
+use ratatui_image::{picker::Picker, protocol::StatefulProtocol, Resize};
 use std::{
     collections::HashSet,
     io::{self, Read, Write},
     path::{Path, PathBuf},
+    sync::mpsc::{self, Sender},
 };
 
 // Step one is taking a given image file and read out some of the super basic metadata about it
@@ -65,6 +68,46 @@ impl Default for GPSInfo {
 
 pub type ExifTags = Vec<Field>;
 
+/// A widget that uses a custom ThreadProtocol as state to offload resizing and encoding
+/// to a background thread
+pub struct ThreadImage {
+    pub resize: Resize,
+}
+
+impl ThreadImage {
+    pub fn new() -> ThreadImage {
+        ThreadImage {
+            resize: Resize::Fit,
+        }
+    }
+
+    pub fn resize(mut self, resize: Resize) -> ThreadImage {
+        self.resize = resize;
+        self
+    }
+}
+
+/// The state of a ThreadImage.
+///
+/// Has `inner` [ResizeProtocol] that is sent off to the `tx` mspc channel to do the
+/// `resize_encode()` work.
+pub struct ThreadProtocol {
+    pub inner: Option<Box<dyn StatefulProtocol>>,
+    pub tx: Sender<(Box<dyn StatefulProtocol>, Resize, Rect)>,
+}
+
+impl ThreadProtocol {
+    pub fn new(
+        tx: Sender<(Box<dyn StatefulProtocol>, Resize, Rect)>,
+        inner: Box<dyn StatefulProtocol>,
+    ) -> ThreadProtocol {
+        ThreadProtocol {
+            inner: Some(inner),
+            tx,
+        }
+    }
+}
+
 pub struct Application {
     pub path_to_image: PathBuf,
     // pub image_source: ImageSource,
@@ -73,6 +116,8 @@ pub struct Application {
     pub original_fields: ExifTags,
     pub modified_fields: ExifTags,
     pub tags_to_randomize: HashSet<Tag>,
+
+    pub async_state: ThreadProtocol,
 
     pub status_msg: String,
 
@@ -109,16 +154,17 @@ impl Application {
         let exifreader = exif::Reader::new();
         let exif = exifreader.read_from_container(&mut bufreader)?;
         let mut has_gps = false;
+        let mut picker = Picker::from_termios().unwrap();
+        picker.guess_protocol();
+        picker.background_color = Some(Rgb::<u8>([255, 0, 255]));
 
-        // let dyn_img = image::io::Reader::open(path_to_image)?.decode()?;
+        let dyn_img = image::io::Reader::open(path_to_image)?.decode()?;
 
-        // let mut picker = Picker::new((8, 12));
-        // let mut picker = Picker::from_termios().unwrap();
-        // picker.guess_protocol();
-        // dyn_img = floyd_steinberg(dyn_img);
+        // Send a [ResizeProtocol] to resize and encode it in a separate thread
+        let (tx_worker, rec_worker) = mpsc::channel::<(Box<dyn StatefulProtocol>, Resize, Rect)>();
+
         //
         // let image_source = ImageSource::new(dyn_img.clone(), picker.font_size);
-
         // let image = picker.new_resize_protocol(dyn_img);
 
         let tags_to_randomize = HashSet::from([
@@ -226,6 +272,7 @@ impl Application {
             original_fields: exif_data_rows.clone(),
             modified_fields: exif_data_rows.clone(),
             tags_to_randomize,
+            async_state: ThreadProtocol::new(tx_worker, picker.new_resize_protocol(dyn_img)),
             status_msg: String::new(),
             globe: g,
             app_mode,
