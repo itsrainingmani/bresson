@@ -24,8 +24,8 @@ pub enum AppMode {
 
 #[derive(Debug, Clone, Copy)]
 pub enum RenderState {
-    Normal,
-    Help,
+    Thumbnail,
+    Globe,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -111,6 +111,7 @@ pub struct Application {
     pub tags_to_randomize: HashSet<Tag>,
 
     pub async_state: ThreadProtocol,
+    pub render_state: RenderState,
 
     pub status_msg: String,
 
@@ -257,13 +258,12 @@ impl Application {
 
         Ok(Self {
             path_to_image: path_to_image.to_path_buf(),
-            // image_source,
-            // image_static: image,
             exif,
             original_fields: exif_data_rows.clone(),
             modified_fields: exif_data_rows.clone(),
             tags_to_randomize,
             async_state: ThreadProtocol::new(tx_worker, picker.new_resize_protocol(dyn_img)),
+            render_state: RenderState::Globe,
             status_msg: String::new(),
             globe: g,
             app_mode,
@@ -709,6 +709,13 @@ impl Application {
 
     pub fn toggle_keybinds(&mut self) {
         self.show_keybinds = !self.show_keybinds;
+    }
+
+    pub fn toggle_render_state(&mut self) {
+        match self.render_state {
+            RenderState::Globe => self.render_state = RenderState::Thumbnail,
+            RenderState::Thumbnail => self.render_state = RenderState::Globe,
+        }
     }
 }
 
