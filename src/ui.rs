@@ -6,8 +6,7 @@ use ratatui::{
     style::{Color, Modifier, Style},
     symbols,
     widgets::{
-        canvas::*, Block, Borders, Clear, Padding, Paragraph, Row, StatefulWidget, Table,
-        TableState,
+        canvas::*, Block, Borders, Clear, Paragraph, Row, StatefulWidget, Table, TableState,
     },
     Frame,
 };
@@ -19,7 +18,8 @@ fn render_metadata_table(
     table_state: &mut TableState,
     area: Rect,
 ) {
-    let widths = [Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)];
+    // let widths = [Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)];
+    let widths = Constraint::from_mins([100, 100]);
     let exif_table = Table::new(app.process_rows(frame.size().width), widths).column_spacing(1);
 
     frame.render_stateful_widget(
@@ -109,7 +109,7 @@ fn render_globe(app: &mut Application, frame: &mut Frame, area: Rect) {
 
 fn render_keybind_popup(app: &mut Application, frame: &mut Frame) {
     let pop_area = centered_rect(frame.size(), 50, 50);
-    let widths = [Constraint::Length(10), Constraint::Length(90)];
+    let widths = [Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)];
     let keybind_table = Table::new(app.keybind_rows(), widths).column_spacing(1);
     frame.render_widget(Clear, pop_area);
     frame.render_widget(
@@ -149,13 +149,8 @@ fn render_image(app: &mut Application, frame: &mut Frame, area: Rect) {
     let collapsed_top_border_set = symbols::border::Set {
         top_left: symbols::line::NORMAL.vertical_right,
         top_right: symbols::line::NORMAL.vertical_left,
-        // bottom_left: symbols::line::NORMAL.horizontal_up,
         ..symbols::border::PLAIN
     };
-
-    // let within_image_block = Layout::default().direction(Direction::Vertical).constraints([
-    // 	Constraint::Percentage(frame.size())
-    // ]);
 
     let block = Block::default()
         .title("Thumbnail")
@@ -165,11 +160,9 @@ fn render_image(app: &mut Application, frame: &mut Frame, area: Rect) {
 
     let rect = centered_rect(block.inner(area), 50, 100);
     let image = ThreadImage::new().resize(Resize::Fit);
-    // let image = Image::new(app.image_static.as_ref());
 
-    frame.render_stateful_widget(image, rect, &mut app.async_state);
     frame.render_widget(block.clone(), area);
-    // frame.render_widget(image, area)
+    frame.render_stateful_widget(image, rect, &mut app.async_state);
 }
 
 pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableState) {
