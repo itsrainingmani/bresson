@@ -718,16 +718,3 @@ impl Application {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // #[test]
-    // fn check_coordinate_transform() {
-    //     println!(
-    //         "{:?}",
-    //         Model::transform_coordinates(40.7128, Cardinal::North, 74.0060, Cardinal::West)
-    //     );
-    // }
-}
