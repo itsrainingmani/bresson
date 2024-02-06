@@ -1,19 +1,17 @@
-use crate::utils::floyd_steinberg;
 use anyhow::Result;
 use chrono::prelude::*;
 use core::f32;
 use exif::{experimental::Writer, Exif, Field, In, Rational, SRational, Tag, Value};
 use globe::Globe;
+use image::Rgb;
 use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
-use ratatui::widgets::Row;
-use ratatui_image::{
-    picker::Picker,
-    protocol::{ImageSource, Protocol, StatefulProtocol},
-};
+use ratatui::{layout::Rect, widgets::Row};
+use ratatui_image::{picker::Picker, protocol::StatefulProtocol, Resize};
 use std::{
     collections::HashSet,
     io::{self, Read, Write},
     path::{Path, PathBuf},
+    sync::mpsc::Sender,
 };
 
 // Step one is taking a given image file and read out some of the super basic metadata about it
@@ -26,8 +24,8 @@ pub enum AppMode {
 
 #[derive(Debug, Clone, Copy)]
 pub enum RenderState {
-    Normal,
-    Help,
+    Thumbnail,
+    Globe,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -65,14 +63,55 @@ impl Default for GPSInfo {
 
 pub type ExifTags = Vec<Field>;
 
+/// A widget that uses a custom ThreadProtocol as state to offload resizing and encoding
+/// to a background thread
+pub struct ThreadImage {
+    pub resize: Resize,
+}
+
+impl ThreadImage {
+    pub fn new() -> ThreadImage {
+        ThreadImage {
+            resize: Resize::Fit,
+        }
+    }
+
+    pub fn resize(mut self, resize: Resize) -> ThreadImage {
+        self.resize = resize;
+        self
+    }
+}
+
+/// The state of a ThreadImage.
+///
+/// Has `inner` [ResizeProtocol] that is sent off to the `tx` mspc channel to do the
+/// `resize_encode()` work.
+pub struct ThreadProtocol {
+    pub inner: Option<Box<dyn StatefulProtocol>>,
+    pub tx: Sender<(Box<dyn StatefulProtocol>, Resize, Rect)>,
+}
+
+impl ThreadProtocol {
+    pub fn new(
+        tx: Sender<(Box<dyn StatefulProtocol>, Resize, Rect)>,
+        inner: Box<dyn StatefulProtocol>,
+    ) -> ThreadProtocol {
+        ThreadProtocol {
+            inner: Some(inner),
+            tx,
+        }
+    }
+}
+
 pub struct Application {
     pub path_to_image: PathBuf,
-    // pub image_source: ImageSource,
-    // pub image_static: Box<dyn StatefulProtocol>,
     pub exif: Exif,
     pub original_fields: ExifTags,
     pub modified_fields: ExifTags,
     pub tags_to_randomize: HashSet<Tag>,
+
+    pub async_state: ThreadProtocol,
+    pub render_state: RenderState,
 
     pub status_msg: String,
 
@@ -101,7 +140,12 @@ pub fn random_datetime(rng: &mut ThreadRng) -> String {
 }
 
 impl Application {
-    pub fn new(path_to_image: &Path, g: Globe, app_mode: AppMode) -> Result<Self> {
+    pub fn new(
+        path_to_image: &Path,
+        g: Globe,
+        app_mode: AppMode,
+        tx_worker: Sender<(Box<dyn StatefulProtocol>, Resize, Rect)>,
+    ) -> Result<Self> {
         let file = std::fs::File::open(path_to_image)?;
         // println!("Size of img is {}", file.metadata()?.len());
 
@@ -109,17 +153,11 @@ impl Application {
         let exifreader = exif::Reader::new();
         let exif = exifreader.read_from_container(&mut bufreader)?;
         let mut has_gps = false;
+        let mut picker = Picker::from_termios().unwrap();
+        picker.guess_protocol();
+        picker.background_color = Some(Rgb::<u8>([255, 0, 255]));
 
-        // let dyn_img = image::io::Reader::open(path_to_image)?.decode()?;
-
-        // let mut picker = Picker::new((8, 12));
-        // let mut picker = Picker::from_termios().unwrap();
-        // picker.guess_protocol();
-        // dyn_img = floyd_steinberg(dyn_img);
-        //
-        // let image_source = ImageSource::new(dyn_img.clone(), picker.font_size);
-
-        // let image = picker.new_resize_protocol(dyn_img);
+        let dyn_img = image::io::Reader::open(path_to_image)?.decode()?;
 
         let tags_to_randomize = HashSet::from([
             Tag::Make,
@@ -220,12 +258,12 @@ impl Application {
 
         Ok(Self {
             path_to_image: path_to_image.to_path_buf(),
-            // image_source,
-            // image_static: image,
             exif,
             original_fields: exif_data_rows.clone(),
             modified_fields: exif_data_rows.clone(),
             tags_to_randomize,
+            async_state: ThreadProtocol::new(tx_worker, picker.new_resize_protocol(dyn_img)),
+            render_state: RenderState::Globe,
             status_msg: String::new(),
             globe: g,
             app_mode,
@@ -671,6 +709,13 @@ impl Application {
 
     pub fn toggle_keybinds(&mut self) {
         self.show_keybinds = !self.show_keybinds;
+    }
+
+    pub fn toggle_render_state(&mut self) {
+        match self.render_state {
+            RenderState::Globe => self.render_state = RenderState::Thumbnail,
+            RenderState::Thumbnail => self.render_state = RenderState::Globe,
+        }
     }
 }
 

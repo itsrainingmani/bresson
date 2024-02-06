@@ -1,12 +1,18 @@
 use anyhow::Result;
 use bresson::{state::*, ui::*};
 use globe::{CameraConfig, GlobeConfig, GlobeTemplate};
-use std::path::Path;
+use ratatui_image::{protocol::StatefulProtocol, Resize};
+use std::{path::Path, sync::mpsc, thread, time::Duration};
 use tui::restore_terminal;
 
-use crossterm::event::{self, KeyCode, KeyEventKind};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{prelude::*, widgets::TableState};
 // use ratatui_image::picker::Picker;
+
+enum AppEvent {
+    KeyEvent(KeyEvent),
+    Redraw(Box<dyn StatefulProtocol>),
+}
 
 fn main() -> Result<()> {
     if std::env::args().len() < 2 {
@@ -27,9 +33,7 @@ fn main() -> Result<()> {
     };
 
     let image_file = Path::new(&image_arg);
-    if image_file.is_file() {
-        eprintln!("Image: {}\n", image_file.display());
-    } else {
+    if !image_file.is_file() {
         eprintln!("Image not present");
         return Ok(());
     }
@@ -39,9 +43,38 @@ fn main() -> Result<()> {
         .with_camera(CameraConfig::new(cam_zoom, 0., 0.))
         // .display_night(true)
         .build();
-    let mut app = Application::new(image_file, globe, app_mode)?;
-    let mut table_state = TableState::new().with_selected(Some(0));
 
+    // Send a [ResizeProtocol] to resize and encode it in a separate thread.
+    let (tx_worker, rec_worker) = mpsc::channel::<(Box<dyn StatefulProtocol>, Resize, Rect)>();
+
+    // Send UI-events and the [ResizeProtocol] result back to main thread.
+    let (tx_main, rec_main) = mpsc::channel();
+
+    // Resize and encode in background thread.
+    let tx_main_render = tx_main.clone();
+    thread::spawn(move || loop {
+        if let Ok((mut protocol, resize, area)) = rec_worker.recv() {
+            protocol.resize_encode(&resize, None, area);
+            tx_main_render.send(AppEvent::Redraw(protocol)).unwrap();
+        }
+    });
+    let mut app = Application::new(image_file, globe, app_mode, tx_worker)?;
+
+    // Poll events in background thread to demonstrate polling terminal events and redraw events
+    // concurrently. It's not required to do it this way - the "redraw event" from the channel
+    // could be read after polling the terminal events (as long as it's done with a timout). But
+    // then the rendering of the image will always be somewhat delayed.
+    let tx_main_events = tx_main.clone();
+    thread::spawn(move || -> Result<(), std::io::Error> {
+        loop {
+            if crossterm::event::poll(Duration::from_millis(16))? {
+                if let Event::Key(key) = event::read()? {
+                    tx_main_events.send(AppEvent::KeyEvent(key)).unwrap();
+                }
+            }
+        }
+    });
+    let mut table_state = TableState::new().with_selected(Some(0));
     match app.app_mode {
         AppMode::CommandLine => {
             // Print out the Exif Data in the CLI
@@ -63,97 +96,101 @@ fn main() -> Result<()> {
 
             loop {
                 terminal.draw(|frame| view(&mut app, frame, &mut table_state))?;
-                if event::poll(std::time::Duration::from_millis(16))? {
-                    if let event::Event::Key(key) = event::read()? {
-                        if key.kind == KeyEventKind::Press && !app.show_keybinds {
-                            match key.code {
-                                KeyCode::Char(c) => match c {
-                                    'o' | 'O' => {
-                                        // Show Original Data
-                                        app.modified_fields = app.original_fields.clone();
-                                        if app.has_gps && !app.should_rotate {
-                                            app.transform_coordinates();
-                                        }
-                                        app.show_message("Showing Original Data".to_owned());
-                                    }
-                                    'r' => {
-                                        // Only randomize the selected element based on table state
-                                        match table_state.selected() {
-                                            Some(index) => {
-                                                app.randomize(index);
+                if let Ok(ev) = rec_main.try_recv() {
+                    match ev {
+                        AppEvent::KeyEvent(key) => {
+                            if key.kind == KeyEventKind::Press && !app.show_keybinds {
+                                match key.code {
+                                    KeyCode::Char(c) => match c {
+                                        'o' | 'O' => {
+                                            // Show Original Data
+                                            app.modified_fields = app.original_fields.clone();
+                                            if app.has_gps && !app.should_rotate {
+                                                app.transform_coordinates();
                                             }
-                                            None => {}
+                                            app.show_message("Showing Original Data".to_owned());
                                         }
-                                    }
-                                    'R' => {
-                                        // Randomize all fields (generalize over the individual field)
-                                        app.randomize_all();
-                                        app.show_message("Randomized all".to_owned());
-                                    }
-                                    'c' | 'C' => {
-                                        app.clear_fields();
-                                        app.show_message("Cleared Metadata".to_owned())
-                                    }
-                                    's' | 'S' => {
-                                        // Save the state into a file copy
-                                        app.save_state()?;
-                                    }
-                                    '?' => {
-                                        // Display a popup window with keybinds
-                                        // toggle the show_keybinds state
-                                        app.toggle_keybinds();
-                                    }
-                                    'q' => break,
-                                    '+' => app.camera_zoom_increase(),
-                                    '-' => app.camera_zoom_decrease(),
-                                    ' ' => app.toggle_rotate(),
-                                    _ => {}
-                                },
-                                KeyCode::Esc => {
-                                    break;
-                                }
-                                KeyCode::Down => match table_state.selected() {
-                                    Some(i) => {
-                                        if i == app.modified_fields.len() - 1 {
-                                            *table_state.selected_mut() = Some(0)
-                                        } else {
-                                            *table_state.selected_mut() = Some(i + 1)
+                                        'r' => {
+                                            // Only randomize the selected element based on table state
+                                            match table_state.selected() {
+                                                Some(index) => {
+                                                    app.randomize(index);
+                                                }
+                                                None => {}
+                                            }
                                         }
+                                        'R' => {
+                                            // Randomize all fields (generalize over the individual field)
+                                            app.randomize_all();
+                                            app.show_message("Randomized all".to_owned());
+                                        }
+                                        'c' | 'C' => {
+                                            app.clear_fields();
+                                            app.show_message("Cleared Metadata".to_owned())
+                                        }
+                                        's' | 'S' => {
+                                            // Save the state into a file copy
+                                            app.save_state()?;
+                                        }
+                                        't' | 'T' => app.toggle_render_state(),
+                                        '?' => {
+                                            // Display a popup window with keybinds
+                                            // toggle the show_keybinds state
+                                            app.toggle_keybinds();
+                                        }
+                                        'q' => break,
+                                        '+' => app.camera_zoom_increase(),
+                                        '-' => app.camera_zoom_decrease(),
+                                        ' ' => app.toggle_rotate(),
+                                        _ => {}
+                                    },
+                                    KeyCode::Esc => {
+                                        break;
                                     }
-                                    None => *table_state.selected_mut() = Some(0),
-                                },
-                                KeyCode::Up => match table_state.selected() {
-                                    Some(i) => {
-                                        if i == 0 {
+                                    KeyCode::Down => match table_state.selected() {
+                                        Some(i) => {
+                                            if i == app.modified_fields.len() - 1 {
+                                                *table_state.selected_mut() = Some(0)
+                                            } else {
+                                                *table_state.selected_mut() = Some(i + 1)
+                                            }
+                                        }
+                                        None => *table_state.selected_mut() = Some(0),
+                                    },
+                                    KeyCode::Up => match table_state.selected() {
+                                        Some(i) => {
+                                            if i == 0 {
+                                                *table_state.selected_mut() =
+                                                    Some(app.modified_fields.len() - 1)
+                                            } else {
+                                                *table_state.selected_mut() = Some(i - 1)
+                                            }
+                                        }
+                                        None => {
                                             *table_state.selected_mut() =
                                                 Some(app.modified_fields.len() - 1)
-                                        } else {
-                                            *table_state.selected_mut() = Some(i - 1)
                                         }
-                                    }
-                                    None => {
-                                        *table_state.selected_mut() =
-                                            Some(app.modified_fields.len() - 1)
-                                    }
-                                },
-                                _ => {}
-                            }
-                        } else {
-                            match key.code {
-                                KeyCode::Char(c) => match c {
-                                    '?' => {
-                                        // Display a popup window with keybinds
-                                        // toggle the show_keybinds state
+                                    },
+                                    _ => {}
+                                }
+                            } else {
+                                match key.code {
+                                    KeyCode::Char(c) => match c {
+                                        '?' => {
+                                            // Display a popup window with keybinds
+                                            // toggle the show_keybinds state
+                                            app.toggle_keybinds();
+                                        }
+                                        _ => {}
+                                    },
+                                    KeyCode::Esc => {
                                         app.toggle_keybinds();
                                     }
                                     _ => {}
-                                },
-                                KeyCode::Esc => {
-                                    app.toggle_keybinds();
                                 }
-                                _ => {}
                             }
                         }
+                        AppEvent::Redraw(protocol) => app.async_state.inner = Some(protocol),
                     }
                 }
 
