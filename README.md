@@ -23,16 +23,15 @@ Within TUI Mode, all of the metadata is displayed inside a table and with the ap
 
 Here is a list of Keybinds for TUI mode -
 
-| Keybind           | Description                                                    |
-|-------------------|----------------------------------------------------------------|
-| `c` \| `C`        | Clear all metadata                                             |
-| `r`               | Randomize the highlighted field                                |
-| `R`               | Randomize all fields                                           |
-| `o` \| `O`        | Display the original metadata for the image                    |
-| `s` \| `S`        | Save a copy of the modified metadata                           |
-| `q` \| `<Esc>`    | Exit the app                                                   |
-
-
+| Keybind        | Description                                         |
+| -------------- | --------------------------------------------------- |
+| `c` \| `C`     | Clear all metadata                                  |
+| `r`            | Randomize the highlighted field                     |
+| `R`            | Randomize all fields                                |
+| `o` \| `O`     | Display the original metadata for the image         |
+| `t` \| `T`     | Toggle between displaying Image Thumbnail and Globe |
+| `s` \| `S`     | Save a copy of the modified metadata                |
+| `q` \| `<Esc>` | Exit the app                                        |
 
 ## Metadata that can be Randomzied
 
