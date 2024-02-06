@@ -6,17 +6,13 @@ use core::f32;
 use exif::{experimental::Writer, Exif, Field, In, Rational, SRational, Tag, Value};
 use image::Rgb;
 use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
-use ratatui::{
-    buffer::Buffer,
-    layout::Rect,
-    widgets::{Row, StatefulWidget},
-};
+use ratatui::{layout::Rect, widgets::Row};
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol, Resize};
 use std::{
     collections::HashSet,
     io::{self, Read, Write},
     path::{Path, PathBuf},
-    sync::mpsc::{self, Sender},
+    sync::mpsc::Sender,
 };
 
 // Step one is taking a given image file and read out some of the super basic metadata about it
@@ -110,8 +106,6 @@ impl ThreadProtocol {
 
 pub struct Application {
     pub path_to_image: PathBuf,
-    // pub image_source: ImageSource,
-    // pub image_static: Box<dyn StatefulProtocol>,
     pub exif: Exif,
     pub original_fields: ExifTags,
     pub modified_fields: ExifTags,
@@ -146,7 +140,12 @@ pub fn random_datetime(rng: &mut ThreadRng) -> String {
 }
 
 impl Application {
-    pub fn new(path_to_image: &Path, g: Globe, app_mode: AppMode) -> Result<Self> {
+    pub fn new(
+        path_to_image: &Path,
+        g: Globe,
+        app_mode: AppMode,
+        tx_worker: Sender<(Box<dyn StatefulProtocol>, Resize, Rect)>,
+    ) -> Result<Self> {
         let file = std::fs::File::open(path_to_image)?;
         // println!("Size of img is {}", file.metadata()?.len());
 
@@ -159,13 +158,6 @@ impl Application {
         picker.background_color = Some(Rgb::<u8>([255, 0, 255]));
 
         let dyn_img = image::io::Reader::open(path_to_image)?.decode()?;
-
-        // Send a [ResizeProtocol] to resize and encode it in a separate thread
-        let (tx_worker, rec_worker) = mpsc::channel::<(Box<dyn StatefulProtocol>, Resize, Rect)>();
-
-        //
-        // let image_source = ImageSource::new(dyn_img.clone(), picker.font_size);
-        // let image = picker.new_resize_protocol(dyn_img);
 
         let tags_to_randomize = HashSet::from([
             Tag::Make,

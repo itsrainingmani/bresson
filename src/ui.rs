@@ -11,7 +11,7 @@ use ratatui::{
     },
     Frame,
 };
-use ratatui_image::{Image, Resize, StatefulImage};
+use ratatui_image::Resize;
 
 fn render_metadata_table(
     app: &mut Application,
@@ -183,8 +183,8 @@ pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableSta
         .split(frame.size());
 
     render_metadata_table(app, frame, table_state, layout[0]);
-    render_globe(app, frame, layout[1]);
-    // render_image(app, frame, layout[1]);
+    // render_globe(app, frame, layout[1]);
+    render_image(app, frame, layout[1]);
     render_status_msg(app, frame, layout[2]);
 
     if app.show_keybinds {
