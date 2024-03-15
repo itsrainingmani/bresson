@@ -130,7 +130,7 @@ fn main() -> Result<()> {
                                             // Save the state into a file copy
                                             app.save_state()?;
                                         }
-                                        't' | 'T' => app.toggle_render_state(),
+                                        // 't' | 'T' => app.toggle_render_state(),
                                         '?' => {
                                             // Display a popup window with keybinds
                                             // toggle the show_keybinds state
