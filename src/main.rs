@@ -7,7 +7,6 @@ use tui::restore_terminal;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{prelude::*, widgets::TableState};
-// use ratatui_image::picker::Picker;
 
 enum AppEvent {
     KeyEvent(KeyEvent),
