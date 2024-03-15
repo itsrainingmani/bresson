@@ -126,20 +126,6 @@ pub struct Application {
     pub should_rotate: bool,
 }
 
-pub fn random_datetime(rng: &mut ThreadRng) -> String {
-    let now_utc = Utc::now();
-    let date_utc = now_utc.date_naive();
-    format!(
-        "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
-        rng.gen_range(2001..=date_utc.year_ce().1),
-        rng.gen_range(1..=(date_utc.month0() + 1)),
-        rng.gen_range(1..=(date_utc.day0() + 1)),
-        rng.gen_range(0..=now_utc.hour()),
-        rng.gen_range(0..=now_utc.minute()),
-        rng.gen_range(0..=now_utc.second())
-    )
-}
-
 impl Application {
     pub fn new(
         path_to_image: &Path,
