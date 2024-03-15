@@ -287,7 +287,7 @@ impl Application {
             Row::new(vec!["c | C", "Clear All Metadata"]),
             Row::new(vec!["o | O", "Restore Metadata"]),
             Row::new(vec!["s | S", "Save a Copy"]),
-            Row::new(vec!["t | T", "Toggle between Thumbnail and Globe"]),
+            // Row::new(vec!["t | T", "Toggle between Thumbnail and Globe"]),
             Row::new(vec!["<Spc>", "Toggle Globe Rotation"]),
             Row::new(vec!["?", "Show/Dismiss Keybind Info"]),
         ])
