@@ -20,4 +20,4 @@ image = "0.24.8"
 kamadak-exif = "0.5.5"
 rand = "0.8.5"
 ratatui = { version = "0.26.0", features = ["all-widgets"] }
-ratatui-image = "0.8.0"
+ratatui-image = { version = "0.8.0", features = ["crossterm"] }
