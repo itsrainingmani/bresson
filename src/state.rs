@@ -326,12 +326,6 @@ impl Application {
         let cam_rot_speed = 1. / 1000.;
         self.globe.angle += globe_rot_speed;
         self.camera_settings.alpha += cam_rot_speed + (globe_rot_speed / 2.);
-
-        self.globe.camera.update(
-            self.camera_settings.zoom,
-            self.camera_settings.alpha,
-            self.camera_settings.beta,
-        );
     }
 
     pub fn toggle_globe(&mut self) {
