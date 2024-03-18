@@ -166,23 +166,31 @@ impl StatefulWidget for ThreadImage {
 // }
 //
 pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableState) {
-    let layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(vec![
-            Constraint::Percentage(40),
-            Constraint::Percentage(55),
-            Constraint::Max(5),
-        ])
-        .split(frame.size());
-
-    render_metadata_table(app, frame, table_state, layout[0]);
-    render_globe(app, frame, layout[1]);
+    if app.show_globe {
+        let layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(vec![
+                Constraint::Percentage(40),
+                Constraint::Percentage(55),
+                Constraint::Max(5),
+            ])
+            .split(frame.size());
+        render_metadata_table(app, frame, table_state, layout[0]);
+        render_globe(app, frame, layout[1]);
+        render_status_msg(app, frame, layout[2]);
+    } else {
+        let layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(vec![Constraint::Percentage(95), Constraint::Max(5)])
+            .split(frame.size());
+        render_metadata_table(app, frame, table_state, layout[0]);
+        render_status_msg(app, frame, layout[1]);
+    };
 
     // match app.render_state {
     //     RenderState::Thumbnail => render_image(app, frame, layout[1]),
     //     RenderState::Globe => render_globe(app, frame, layout[1]),
     // }
-    render_status_msg(app, frame, layout[2]);
 
     if app.show_keybinds {
         render_keybind_popup(app, frame);

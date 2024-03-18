@@ -130,16 +130,20 @@ fn main() -> Result<()> {
                                             // Save the state into a file copy
                                             app.save_state()?;
                                         }
+                                        'g' | 'G' => {
+                                            // Save the state into a file copy
+                                            app.toggle_globe();
+                                        }
                                         // 't' | 'T' => app.toggle_render_state(),
                                         '?' => {
                                             // Display a popup window with keybinds
                                             // toggle the show_keybinds state
                                             app.toggle_keybinds();
                                         }
-                                        'q' => break,
                                         '+' => app.camera_zoom_increase(),
                                         '-' => app.camera_zoom_decrease(),
                                         ' ' => app.toggle_rotate(),
+                                        'q' => break,
                                         _ => {}
                                     },
                                     KeyCode::Esc => {

@@ -124,6 +124,7 @@ pub struct Application {
     pub camera_settings: CameraSettings,
     pub show_keybinds: bool,
     pub should_rotate: bool,
+    pub show_globe: bool,
 }
 
 impl Application {
@@ -251,6 +252,7 @@ impl Application {
             },
             show_keybinds: false,
             should_rotate: false || !has_gps,
+            show_globe: true,
         })
     }
 
@@ -263,6 +265,7 @@ impl Application {
             Row::new(vec!["o | O", "Restore Metadata"]),
             Row::new(vec!["s | S", "Save a Copy"]),
             // Row::new(vec!["t | T", "Toggle between Thumbnail and Globe"]),
+            Row::new(vec!["g | G", "Toggle Globe Visibility"]),
             Row::new(vec!["<Spc>", "Toggle Globe Rotation"]),
             Row::new(vec!["?", "Show/Dismiss Keybind Info"]),
         ])
@@ -329,6 +332,10 @@ impl Application {
             self.camera_settings.alpha,
             self.camera_settings.beta,
         );
+    }
+
+    pub fn toggle_globe(&mut self) {
+        self.show_globe = !self.show_globe
     }
 
     pub fn camera_zoom_increase(&mut self) {
