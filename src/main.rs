@@ -188,7 +188,7 @@ fn main() -> Result<()> {
                                 }
                             }
                         }
-                        AppEvent::Redraw(protocol) => app.async_state.inner = Some(protocol),
+                        _ => {} // AppEvent::Redraw(protocol) => app.async_state.inner = Some(protocol),
                     }
                 }
 

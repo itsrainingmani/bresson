@@ -1,19 +1,19 @@
 use crate::globe::Globe;
 use crate::utils::floyd_steinberg;
 use anyhow::Result;
-use chrono::prelude::*;
 use core::f32;
 use exif::{experimental::Writer, Exif, Field, In, Rational, SRational, Tag, Value};
 use image::Rgb;
 use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
 use ratatui::{layout::Rect, widgets::Row};
-use ratatui_image::{picker::Picker, protocol::StatefulProtocol, Resize};
+use ratatui_image::{protocol::StatefulProtocol, Resize};
 use std::{
-    collections::HashSet,
     io::{self, Read, Write},
     path::{Path, PathBuf},
     sync::mpsc::Sender,
 };
+
+use crate::randomize::RandomMetadata;
 
 // Step one is taking a given image file and read out some of the super basic metadata about it
 
@@ -109,9 +109,9 @@ pub struct Application {
     pub exif: Exif,
     pub original_fields: ExifTags,
     pub modified_fields: ExifTags,
-    pub tags_to_randomize: HashSet<Tag>,
+    pub randomizer: RandomMetadata,
 
-    pub async_state: ThreadProtocol,
+    // pub async_state: ThreadProtocol,
     pub render_state: RenderState,
 
     pub status_msg: String,
@@ -140,23 +140,11 @@ impl Application {
         let exifreader = exif::Reader::new();
         let exif = exifreader.read_from_container(&mut bufreader)?;
         let mut has_gps = false;
-        let mut picker = Picker::from_termios().unwrap();
-        picker.guess_protocol();
-        picker.background_color = Some(Rgb::<u8>([255, 0, 255]));
+        // let mut picker = Picker::from_termios().unwrap();
+        // picker.guess_protocol();
+        // picker.background_color = Some(Rgb::<u8>([255, 0, 255]));
 
-        let dyn_img = image::io::Reader::open(path_to_image)?.decode()?;
-
-        let tags_to_randomize = HashSet::from([
-            Tag::Make,
-            Tag::Model,
-            Tag::DateTimeOriginal,
-            Tag::DateTime,
-            Tag::DateTimeDigitized,
-            Tag::ExposureTime,
-            Tag::FNumber,
-            Tag::MeteringMode,
-            Tag::ColorSpace,
-        ]);
+        // let dyn_img = image::io::Reader::open(path_to_image)?.decode()?;
 
         let mut exif_data_rows: ExifTags = Vec::new();
         for f in exif.fields() {
@@ -248,8 +236,8 @@ impl Application {
             exif,
             original_fields: exif_data_rows.clone(),
             modified_fields: exif_data_rows.clone(),
-            tags_to_randomize,
-            async_state: ThreadProtocol::new(tx_worker, picker.new_resize_protocol(dyn_img)),
+            randomizer: RandomMetadata::default(),
+            // async_state: ThreadProtocol::new(tx_worker, picker.new_resize_protocol(dyn_img)),
             render_state: RenderState::Globe,
             status_msg: String::new(),
             globe: g,
@@ -395,68 +383,22 @@ impl Application {
     }
 
     pub fn randomize(&mut self, index: usize) {
-        let mut rng = rand::thread_rng();
-        // let mut random_data: ExifTags = Vec::new();
-        let camera_manufacturers = vec![
-            "Canon",
-            "Nikon",
-            "Sony",
-            "Fujifilm",
-            "Panasonic",
-            "Olympus",
-            "Leica",
-            "Pentax",
-            "Samsung",
-            "GoPro",
-            "Hasselblad",
-            "DJI",
-            "Phase One",
-            "Ricoh",
-            "Sigma",
-            "Hoya",
-            "Kodak",
-            "YI Technology",
-            "Lytro",
-            "RED Digital Cinema",
-        ];
-        let f_numbers = vec![1, 2, 3, 4, 5, 8, 11, 16, 22, 32, 45, 64];
-        let tag_at_index = self.modified_fields.get(index).unwrap().tag;
-        if self.tags_to_randomize.contains(&tag_at_index) {
-            self.show_message(format!("Randomized {}", tag_at_index.to_string()).to_owned());
-        } else {
-            self.show_message(format!("Cannot randomize {}", tag_at_index.to_string()).to_owned())
-        }
-
-        match self.modified_fields.get_mut(index) {
-            Some(f) => {
-                // println!("{:?}", f);
-                match f.tag {
-                    Tag::Make => {
-                        f.value = Value::Ascii(vec![Vec::from(
-                            *camera_manufacturers.choose(&mut rng).unwrap(),
-                        )]);
-                    }
-                    Tag::ExposureTime => {
-                        f.value = Value::Rational(vec![Rational {
-                            num: 1,
-                            denom: rand::random::<u8>() as u32,
-                        }]);
-                    }
-                    Tag::FNumber => {
-                        f.value = Value::Rational(vec![Rational {
-                            num: *f_numbers.choose(&mut rng).unwrap(),
-                            denom: rng.gen_range(1..=3),
-                        }]);
-                    }
-                    Tag::MeteringMode => f.value = Value::Short(vec![rng.gen_range(1..=6)]),
-                    Tag::DateTimeOriginal | Tag::DateTime | Tag::DateTimeDigitized => {
-                        // f.value = Value::Ascii(vec![Vec::from(random_datetime(&mut rng))]);
-                        self.sync_date_fields(random_datetime(&mut rng))
-                    }
-                    _ => {}
+        let field_at_index = self.modified_fields.get_mut(index).unwrap();
+        match field_at_index.tag {
+            Tag::DateTimeOriginal | Tag::DateTime | Tag::DateTimeDigitized => {
+                let new_dt = self.randomizer.randomize_datetime();
+                self.sync_date_fields(new_dt);
+                self.status_msg = String::from("Randomized DateTime");
+            }
+            _ => {
+                if let Some(v) = self.randomizer.randomize_tag(field_at_index.tag) {
+                    field_at_index.value = v;
+                    self.status_msg = format!("Randomized {}", field_at_index.tag.to_string());
+                } else {
+                    self.status_msg =
+                        format!("Cannot randomize {}", field_at_index.tag.to_string());
                 }
             }
-            None => {}
         }
     }
 

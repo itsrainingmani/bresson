@@ -145,26 +145,26 @@ impl StatefulWidget for ThreadImage {
     }
 }
 
-fn render_image(app: &mut Application, frame: &mut Frame, area: Rect) {
-    let collapsed_top_border_set = symbols::border::Set {
-        top_left: symbols::line::NORMAL.vertical_right,
-        top_right: symbols::line::NORMAL.vertical_left,
-        ..symbols::border::PLAIN
-    };
-
-    let block = Block::default()
-        .title("Thumbnail")
-        .title_style(Style::new().bold())
-        .border_set(collapsed_top_border_set)
-        .borders(Borders::ALL);
-
-    let rect = centered_rect(block.inner(area), 50, 100);
-    let image = ThreadImage::new().resize(Resize::Fit);
-
-    frame.render_widget(block.clone(), area);
-    frame.render_stateful_widget(image, rect, &mut app.async_state);
-}
-
+// fn render_image(app: &mut Application, frame: &mut Frame, area: Rect) {
+//     let collapsed_top_border_set = symbols::border::Set {
+//         top_left: symbols::line::NORMAL.vertical_right,
+//         top_right: symbols::line::NORMAL.vertical_left,
+//         ..symbols::border::PLAIN
+//     };
+//
+//     let block = Block::default()
+//         .title("Thumbnail")
+//         .title_style(Style::new().bold())
+//         .border_set(collapsed_top_border_set)
+//         .borders(Borders::ALL);
+//
+//     let rect = centered_rect(block.inner(area), 50, 100);
+//     let image = ThreadImage::new().resize(Resize::Fit);
+//
+//     frame.render_widget(block.clone(), area);
+//     frame.render_stateful_widget(image, rect, &mut app.async_state);
+// }
+//
 pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableState) {
     let layout = Layout::default()
         .direction(Direction::Vertical)
@@ -176,11 +176,12 @@ pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableSta
         .split(frame.size());
 
     render_metadata_table(app, frame, table_state, layout[0]);
+    render_globe(app, frame, layout[1]);
 
-    match app.render_state {
-        RenderState::Thumbnail => render_image(app, frame, layout[1]),
-        RenderState::Globe => render_globe(app, frame, layout[1]),
-    }
+    // match app.render_state {
+    //     RenderState::Thumbnail => render_image(app, frame, layout[1]),
+    //     RenderState::Globe => render_globe(app, frame, layout[1]),
+    // }
     render_status_msg(app, frame, layout[2]);
 
     if app.show_keybinds {
