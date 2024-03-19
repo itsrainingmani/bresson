@@ -25,15 +25,18 @@ Here is a list of Keybinds for TUI mode -
 
 | Keybind        | Description                                         |
 | -------------- | --------------------------------------------------- |
-| `c` \| `C`     | Clear all metadata                                  |
+| `q` \| `<Esc>` | Exit the app                                        |
 | `r`            | Randomize the highlighted field                     |
 | `R`            | Randomize all fields                                |
+| `c` \| `C`     | Clear all metadata                                  |
 | `o` \| `O`     | Display the original metadata for the image         |
 | `t` \| `T`     | Toggle between displaying Image Thumbnail and Globe |
 | `s` \| `S`     | Save a copy of the modified metadata                |
-| `q` \| `<Esc>` | Exit the app                                        |
+| `g` \| `G`     | Toggle Globe Visibility                             |
+| `<Spc>`        | Toggle Globe Rotation                               |
+| `?`            | Show/Dismiss Keybind Info                           |
 
-## Metadata that can be Randomzied
+## Metadata that can be randomized
 
 - Make
 - Model
@@ -53,3 +56,11 @@ Here is a list of Keybinds for TUI mode -
 - GPSLongitude
 - GPSLatitudeRef
 - GPSLongitudeRef
+
+## Future Features
+
+- [ ] Configuration File
+- [ ] Alternate Stylesheets
+- [ ] DSL for defining modifications
+- [ ] Batch processing a directory containing multiple images
+- [ ] File Picker interface
