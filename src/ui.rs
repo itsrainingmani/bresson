@@ -5,12 +5,9 @@ use ratatui::{
     prelude::*,
     style::{Color, Modifier, Style},
     symbols,
-    widgets::{
-        canvas::*, Block, Borders, Clear, Paragraph, Row, StatefulWidget, Table, TableState,
-    },
+    widgets::{canvas::*, Block, Borders, Clear, Paragraph, Row, Table, TableState},
     Frame,
 };
-use ratatui_image::Resize;
 
 fn render_metadata_table(
     app: &mut Application,
@@ -26,7 +23,7 @@ fn render_metadata_table(
         exif_table
             .block(
                 Block::new()
-                    .title("Metadata")
+                    .title("Image Metadata")
                     .title_style(Style::new().bold())
                     .border_set(symbols::border::PLAIN)
                     .borders(if app.show_globe {
@@ -127,27 +124,27 @@ fn render_keybind_popup(app: &mut Application, frame: &mut Frame) {
     )
 }
 
-impl StatefulWidget for ThreadImage {
-    type State = ThreadProtocol;
-
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        state.inner = match state.inner.take() {
-            // We have the `protocol` and should either resize or render.
-            Some(mut protocol) => {
-                // If it needs resizing (grow or shrink) then send it away instead of rendering.
-                if let Some(rect) = protocol.needs_resize(&self.resize, area) {
-                    state.tx.send((protocol, self.resize, rect)).unwrap();
-                    None
-                } else {
-                    protocol.render(area, buf);
-                    Some(protocol)
-                }
-            }
-            // We are waiting to get back the protocol.
-            None => None,
-        };
-    }
-}
+// impl StatefulWidget for ThreadImage {
+//     type State = ThreadProtocol;
+//
+//     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         state.inner = match state.inner.take() {
+//             // We have the `protocol` and should either resize or render.
+//             Some(mut protocol) => {
+//                 // If it needs resizing (grow or shrink) then send it away instead of rendering.
+//                 if let Some(rect) = protocol.needs_resize(&self.resize, area) {
+//                     state.tx.send((protocol, self.resize, rect)).unwrap();
+//                     None
+//                 } else {
+//                     protocol.render(area, buf);
+//                     Some(protocol)
+//                 }
+//             }
+//             // We are waiting to get back the protocol.
+//             None => None,
+//         };
+//     }
+// }
 
 // fn render_image(app: &mut Application, frame: &mut Frame, area: Rect) {
 //     let collapsed_top_border_set = symbols::border::Set {
@@ -170,18 +167,27 @@ impl StatefulWidget for ThreadImage {
 // }
 //
 pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableState) {
-    if app.show_globe {
-        let layout = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints(vec![
-                Constraint::Percentage(40),
-                Constraint::Percentage(55),
-                Constraint::Max(5),
-            ])
-            .split(frame.size());
-        render_metadata_table(app, frame, table_state, layout[0]);
-        render_globe(app, frame, layout[1]);
-        render_status_msg(app, frame, layout[2]);
+    if app.has_gps {
+        if app.show_globe {
+            let layout = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints(vec![
+                    Constraint::Percentage(40),
+                    Constraint::Percentage(55),
+                    Constraint::Max(5),
+                ])
+                .split(frame.size());
+            render_metadata_table(app, frame, table_state, layout[0]);
+            render_globe(app, frame, layout[1]);
+            render_status_msg(app, frame, layout[2]);
+        } else {
+            let layout = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints(vec![Constraint::Percentage(95), Constraint::Max(5)])
+                .split(frame.size());
+            render_metadata_table(app, frame, table_state, layout[0]);
+            render_status_msg(app, frame, layout[1]);
+        };
     } else {
         let layout = Layout::default()
             .direction(Direction::Vertical)
@@ -189,12 +195,7 @@ pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableSta
             .split(frame.size());
         render_metadata_table(app, frame, table_state, layout[0]);
         render_status_msg(app, frame, layout[1]);
-    };
-
-    // match app.render_state {
-    //     RenderState::Thumbnail => render_image(app, frame, layout[1]),
-    //     RenderState::Globe => render_globe(app, frame, layout[1]),
-    // }
+    }
 
     if app.show_keybinds {
         render_keybind_popup(app, frame);
