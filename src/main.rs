@@ -76,8 +76,8 @@ fn main() -> Result<()> {
     match app.app_mode {
         AppMode::CommandLine => {
             // Print out the Exif Data in the CLI
-            app.clear_fields();
-            app.save_state()?;
+            // app.clear_fields();
+            // app.save_state()?;
             Ok(())
         }
         AppMode::Interactive => {

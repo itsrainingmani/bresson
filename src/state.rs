@@ -45,6 +45,10 @@ pub struct GPSInfo {
     long_direction: Cardinal,
 }
 
+// impl Into<Value> for GPSInfo {
+//
+// }
+
 pub struct CameraSettings {
     zoom: f32,
     alpha: f32, // Rotation along xy-axis
@@ -293,17 +297,57 @@ impl Application {
                             exif_data_rows.push(vec![f.tag.to_string(), String::from("")]);
                         }
                     }
-                    _ => {
-                        exif_data_rows.push(vec![
-                            f.tag.to_string(),
-                            f.display_value()
-                                .with_unit(&self.exif)
-                                .to_string()
-                                .trim_matches('"')
-                                .to_string()
-                                .replace("\\x00", ""),
-                        ]);
-                    }
+                    _ => match f.tag {
+                        Tag::GPSLatitude => {
+                            let lat_dir = self
+                                .modified_fields
+                                .iter()
+                                .find(|f| f.tag == Tag::GPSLatitudeRef)
+                                .unwrap();
+                            exif_data_rows.push(vec![
+                                f.tag.to_string(),
+                                format!(
+                                    "{} {}",
+                                    f.display_value()
+                                        .to_string()
+                                        .trim_matches('"')
+                                        .to_string()
+                                        .replace("\\x00", ""),
+                                    lat_dir.display_value()
+                                ),
+                            ]);
+                        }
+                        Tag::GPSLongitude => {
+                            let long_dir = self
+                                .modified_fields
+                                .iter()
+                                .find(|f| f.tag == Tag::GPSLongitudeRef)
+                                .unwrap();
+                            exif_data_rows.push(vec![
+                                f.tag.to_string(),
+                                format!(
+                                    "{} {}",
+                                    f.display_value()
+                                        .to_string()
+                                        .trim_matches('"')
+                                        .to_string()
+                                        .replace("\\x00", ""),
+                                    long_dir.display_value()
+                                ),
+                            ]);
+                        }
+                        _ => {
+                            exif_data_rows.push(vec![
+                                f.tag.to_string(),
+                                f.display_value()
+                                    .with_unit(&self.exif)
+                                    .to_string()
+                                    .trim_matches('"')
+                                    .to_string()
+                                    .replace("\\x00", ""),
+                            ]);
+                        }
+                    },
                 }
             }
         }
@@ -391,6 +435,8 @@ impl Application {
                 self.sync_date_fields(new_dt);
                 self.status_msg = String::from("Randomized DateTime");
             }
+            Tag::GPSLatitude | Tag::GPSLatitudeRef => self.sync_latitude(),
+            Tag::GPSLongitude | Tag::GPSLongitudeRef => self.sync_longitude(),
             _ => {
                 if let Some(v) = self.randomizer.randomize_tag(field_at_index.tag) {
                     field_at_index.value = v;
@@ -399,6 +445,28 @@ impl Application {
                     self.status_msg =
                         format!("Cannot randomize {}", field_at_index.tag.to_string());
                 }
+            }
+        }
+    }
+
+    fn sync_latitude(&mut self) {
+        let (new_lat, lat_dir) = self.randomizer.random_latlong(Cardinal::North);
+        for f in self.modified_fields.iter_mut() {
+            match f.tag {
+                Tag::GPSLatitudeRef => f.value = Value::Ascii(vec![lat_dir.bytes().collect()]),
+                Tag::GPSLatitude => f.value = new_lat.clone(),
+                _ => {}
+            }
+        }
+    }
+
+    fn sync_longitude(&mut self) {
+        let (new_long, long_dir) = self.randomizer.random_latlong(Cardinal::East);
+        for f in self.modified_fields.iter_mut() {
+            match f.tag {
+                Tag::GPSLongitudeRef => f.value = Value::Ascii(vec![long_dir.bytes().collect()]),
+                Tag::GPSLongitude => f.value = new_long.clone(),
+                _ => {}
             }
         }
     }

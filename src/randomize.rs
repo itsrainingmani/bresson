@@ -4,27 +4,57 @@ use chrono::{Datelike, Timelike, Utc};
 use exif::{Tag, Value};
 use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
 
-const MANUFACTURERS: [&str; 20] = [
+use crate::state::Cardinal;
+
+const MANUFACTURERS: [&str; 48] = [
+    "Acer",
+    "Apple",
+    "BenQ",
+    "BlackBerry",
     "Canon",
-    "Nikon",
-    "Sony",
-    "Fujifilm",
-    "Panasonic",
-    "Olympus",
-    "Leica",
-    "Pentax",
-    "Samsung",
-    "GoPro",
-    "Hasselblad",
+    "Casio",
+    "Concord",
     "DJI",
-    "Phase One",
-    "Ricoh",
-    "Sigma",
-    "Hoya",
+    "DoCoMo",
+    "Epson",
+    "Fujifilm",
+    "GoPro",
+    "Google",
+    "HP",
+    "HTC",
+    "Hasselblad",
+    "Helio",
+    "Huawei",
+    "JVC",
+    "KDDI",
     "Kodak",
-    "YI Technology",
-    "Lytro",
-    "RED Digital Cinema",
+    "Konica Minolta",
+    "Kyocera",
+    "LG",
+    "Leaf",
+    "Leica",
+    "Mamiya",
+    "Motorola",
+    "Nikon",
+    "Nintendo",
+    "Nokia",
+    "Olympus",
+    "OnePlus",
+    "Palm",
+    "Panasonic",
+    "Pentax",
+    "Phase One",
+    "Polaroid",
+    "Ricoh",
+    "Samsung",
+    "Sanyo",
+    "Sharp",
+    "Sigma",
+    "Sony",
+    "Sony Ericsson",
+    "Toshiba",
+    "Vivitar",
+    "Xiaomi",
 ];
 
 const F_NUMBERS: [u32; 12] = [1, 2, 3, 4, 5, 8, 11, 16, 22, 32, 45, 64];
@@ -47,6 +77,10 @@ impl Default for RandomMetadata {
                 Tag::FNumber,
                 Tag::MeteringMode,
                 Tag::ColorSpace,
+                Tag::GPSLatitude,
+                Tag::GPSLongitude,
+                Tag::GPSLatitudeRef,
+                Tag::GPSLongitudeRef,
             ]),
             thread_rng: rand::thread_rng(),
         }
@@ -88,5 +122,41 @@ impl RandomMetadata {
         } else {
             None
         }
+    }
+
+    pub fn random_latlong(&mut self, direction: Cardinal) -> (Value, String) {
+        let latlong_range = match direction {
+            Cardinal::East | Cardinal::West => 180,
+            Cardinal::North | Cardinal::South => 90,
+        };
+        let new_lat_deg = self.thread_rng.gen_range(0..latlong_range);
+        let new_lat_min = self.thread_rng.gen_range(0..60);
+        let new_lat_sec = self.thread_rng.gen_range(0..60);
+
+        let dir_rand = self.thread_rng.gen_bool(0.5);
+        let dir = match direction {
+            Cardinal::East | Cardinal::West => {
+                if dir_rand {
+                    String::from('E')
+                } else {
+                    String::from('W')
+                }
+            }
+            Cardinal::North | Cardinal::South => {
+                if dir_rand {
+                    String::from('N')
+                } else {
+                    String::from('S')
+                }
+            }
+        };
+
+        let new_lat = Value::Rational(vec![
+            (new_lat_deg, 1).into(),
+            (new_lat_min, 1).into(),
+            (new_lat_sec, 1).into(),
+        ]);
+
+        (new_lat, dir)
     }
 }
