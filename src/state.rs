@@ -13,7 +13,7 @@ use std::{
     sync::mpsc::Sender,
 };
 
-use crate::randomize::RandomMetadata;
+use crate::{randomize::RandomMetadata, utils};
 
 // Step one is taking a given image file and read out some of the super basic metadata about it
 
@@ -275,26 +275,30 @@ impl Application {
         ])
     }
 
+    fn tag_desc(&self, f: &Field) -> String {
+        f.tag
+            .description()
+            .unwrap_or(&f.tag.to_string())
+            .to_string()
+    }
+
     pub fn process_rows(&self, term_width: u16) -> Vec<Row> {
         let mut exif_data_rows = Vec::new();
 
         for f in &self.modified_fields {
             let f_val = f.tag.to_string();
             if f_val.len() > 0 {
-                match &f.value {
+                let data_row = match &f.value {
                     Value::Ascii(x) => {
                         if x.iter().all(|x| x.len() > 0) {
-                            exif_data_rows.push(vec![
-                                f.tag.to_string(),
-                                f.display_value()
-                                    .with_unit(&self.exif)
-                                    .to_string()
-                                    .trim_matches('"')
-                                    .to_string()
-                                    .replace("\\x00", ""),
-                            ]);
+                            vec![
+                                self.tag_desc(f),
+                                utils::clean_disp(
+                                    &f.display_value().with_unit(&self.exif).to_string(),
+                                ),
+                            ]
                         } else {
-                            exif_data_rows.push(vec![f.tag.to_string(), String::from("")]);
+                            vec![self.tag_desc(f), String::from("")]
                         }
                     }
                     _ => match f.tag {
@@ -304,18 +308,14 @@ impl Application {
                                 .iter()
                                 .find(|f| f.tag == Tag::GPSLatitudeRef)
                                 .unwrap();
-                            exif_data_rows.push(vec![
-                                f.tag.to_string(),
+                            vec![
+                                self.tag_desc(f),
                                 format!(
                                     "{} {}",
-                                    f.display_value()
-                                        .to_string()
-                                        .trim_matches('"')
-                                        .to_string()
-                                        .replace("\\x00", ""),
+                                    utils::clean_disp(&f.display_value().to_string()),
                                     lat_dir.display_value()
                                 ),
-                            ]);
+                            ]
                         }
                         Tag::GPSLongitude => {
                             let long_dir = self
@@ -323,32 +323,26 @@ impl Application {
                                 .iter()
                                 .find(|f| f.tag == Tag::GPSLongitudeRef)
                                 .unwrap();
-                            exif_data_rows.push(vec![
-                                f.tag.to_string(),
+                            vec![
+                                self.tag_desc(f),
                                 format!(
                                     "{} {}",
-                                    f.display_value()
-                                        .to_string()
-                                        .trim_matches('"')
-                                        .to_string()
-                                        .replace("\\x00", ""),
+                                    utils::clean_disp(&f.display_value().to_string()),
                                     long_dir.display_value()
                                 ),
-                            ]);
+                            ]
                         }
                         _ => {
-                            exif_data_rows.push(vec![
-                                f.tag.to_string(),
-                                f.display_value()
-                                    .with_unit(&self.exif)
-                                    .to_string()
-                                    .trim_matches('"')
-                                    .to_string()
-                                    .replace("\\x00", ""),
-                            ]);
+                            vec![
+                                self.tag_desc(f),
+                                utils::clean_disp(
+                                    &f.display_value().with_unit(&self.exif).to_string(),
+                                ),
+                            ]
                         }
                     },
-                }
+                };
+                exif_data_rows.push(data_row);
             }
         }
 

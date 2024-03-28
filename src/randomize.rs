@@ -71,16 +71,16 @@ impl Default for RandomMetadata {
                 Tag::Make,
                 Tag::Model,
                 Tag::DateTimeOriginal,
-                Tag::DateTime,
-                Tag::DateTimeDigitized,
                 Tag::ExposureTime,
                 Tag::FNumber,
                 Tag::MeteringMode,
                 Tag::ColorSpace,
                 Tag::GPSLatitude,
-                Tag::GPSLongitude,
                 Tag::GPSLatitudeRef,
+                Tag::GPSLongitude,
                 Tag::GPSLongitudeRef,
+                Tag::DateTime,
+                Tag::DateTimeDigitized,
             ]),
             thread_rng: rand::thread_rng(),
         }
@@ -101,6 +101,7 @@ impl RandomMetadata {
             self.thread_rng.gen_range(0..=now_utc.second())
         )
     }
+
     pub fn randomize_tag(&mut self, tag_to_modify: Tag) -> Option<Value> {
         // let mut random_data: ExifTags = Vec::new();
         if self.tags_to_randomize.contains(&tag_to_modify) {
