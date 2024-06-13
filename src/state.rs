@@ -20,7 +20,7 @@ use crate::{randomize::RandomMetadata, utils};
 #[derive(Debug, Clone, Copy)]
 pub enum AppMode {
     CommandLine,
-    Interactive,
+    InteractiveFile,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -136,7 +136,7 @@ impl Application {
         path_to_image: &Path,
         g: Globe,
         app_mode: AppMode,
-        tx_worker: Sender<(Box<dyn StatefulProtocol>, Resize, Rect)>,
+        _tx_worker: Sender<(Box<dyn StatefulProtocol>, Resize, Rect)>,
     ) -> Result<Self> {
         let file = std::fs::File::open(path_to_image)?;
         // println!("Size of img is {}", file.metadata()?.len());

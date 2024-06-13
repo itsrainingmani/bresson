@@ -25,7 +25,6 @@ Here is a list of Keybinds for TUI mode -
 
 | Keybind        | Description                                         |
 | -------------- | --------------------------------------------------- |
-| `q` \| `<Esc>` | Exit the app                                        |
 | `r`            | Randomize the highlighted field                     |
 | `R`            | Randomize all fields                                |
 | `c` \| `C`     | Clear all metadata                                  |
@@ -34,6 +33,7 @@ Here is a list of Keybinds for TUI mode -
 | `s` \| `S`     | Save a copy of the modified metadata                |
 | `g` \| `G`     | Toggle Globe Visibility                             |
 | `<Spc>`        | Toggle Globe Rotation                               |
+| `q` \| `<Esc>` | Exit the app                                        |
 | `?`            | Show/Dismiss Keybind Info                           |
 
 ## Metadata that can be randomized
