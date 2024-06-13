@@ -9,6 +9,21 @@ use ratatui::{
     Frame,
 };
 
+fn render_filename(app: &mut Application, frame: &mut Frame, area: Rect) {
+    frame.render_widget(
+        Paragraph::new(app.path_to_image.display().to_string())
+            .style(Style::new().italic().bold().green())
+            .block(
+                Block::new()
+                    .title("Filename")
+                    .title_style(Style::new().bold())
+                    .border_set(symbols::border::ROUNDED)
+                    .borders(Borders::ALL),
+            ),
+        area,
+    )
+}
+
 fn render_metadata_table(
     app: &mut Application,
     frame: &mut Frame,
@@ -25,7 +40,7 @@ fn render_metadata_table(
                 Block::new()
                     .title("Image Metadata")
                     .title_style(Style::new().bold())
-                    .border_set(symbols::border::PLAIN)
+                    .border_set(symbols::border::ROUNDED)
                     .borders(if app.show_globe {
                         Borders::TOP | Borders::RIGHT | Borders::LEFT
                     } else {
@@ -33,11 +48,10 @@ fn render_metadata_table(
                     }), // .padding(Padding::uniform(1)),
             )
             .header(Row::new(vec!["Tag", "Data"]).bold().underlined())
-            // .style(Style::new().bold())
             .highlight_style(
                 Style::new()
                     .cyan()
-                    .add_modifier(Modifier::BOLD)
+                    .add_modifier(Modifier::BOLD | Modifier::ITALIC)
                     .bg(Color::DarkGray),
             )
             .highlight_symbol("> "),
@@ -49,10 +63,10 @@ fn render_metadata_table(
 
 fn render_globe(app: &mut Application, frame: &mut Frame, area: Rect) {
     let collapsed_top_border_set = symbols::border::Set {
-        top_left: symbols::line::NORMAL.vertical_right,
-        top_right: symbols::line::NORMAL.vertical_left,
+        top_left: symbols::line::ROUNDED.vertical_right,
+        top_right: symbols::line::ROUNDED.vertical_left,
         // bottom_left: symbols::line::NORMAL.horizontal_up,
-        ..symbols::border::PLAIN
+        ..symbols::border::ROUNDED
     };
 
     frame.render_widget(
@@ -108,6 +122,19 @@ fn render_globe(app: &mut Application, frame: &mut Frame, area: Rect) {
     );
 }
 
+fn render_status_msg(app: &mut Application, frame: &mut Frame, area: Rect) {
+    frame.render_widget(
+        Paragraph::new(app.status_msg.clone()).block(
+            Block::new()
+                .title("Status")
+                .title_style(Style::new().bold())
+                .borders(Borders::ALL)
+                .border_set(symbols::border::ROUNDED),
+        ),
+        area,
+    );
+}
+
 fn render_keybind_popup(app: &mut Application, frame: &mut Frame) {
     let pop_area = centered_rect(frame.size(), 50, 50);
     let widths = [Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)];
@@ -118,7 +145,8 @@ fn render_keybind_popup(app: &mut Application, frame: &mut Frame) {
             Block::new()
                 .title("Keybinds")
                 .title_style(Style::new().bold())
-                .borders(Borders::ALL),
+                .borders(Borders::ALL)
+                .border_set(symbols::border::ROUNDED),
         ),
         pop_area,
     )
@@ -212,30 +240,6 @@ pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableSta
     if app.show_keybinds {
         render_keybind_popup(app, frame);
     }
-}
-
-fn render_filename(app: &mut Application, frame: &mut Frame, area: Rect) {
-    frame.render_widget(
-        Paragraph::new(app.path_to_image.display().to_string()).block(
-            Block::new()
-                .title("Filename")
-                .title_style(Style::new().bold())
-                .borders(Borders::ALL),
-        ),
-        area,
-    )
-}
-
-fn render_status_msg(app: &mut Application, frame: &mut Frame, area: Rect) {
-    frame.render_widget(
-        Paragraph::new(app.status_msg.clone()).block(
-            Block::new()
-                .title("Status")
-                .title_style(Style::new().bold())
-                .borders(Borders::ALL),
-        ),
-        area,
-    );
 }
 
 /// # Usage
