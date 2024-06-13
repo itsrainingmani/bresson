@@ -61,6 +61,11 @@ const F_NUMBERS: [f32; 13] = [
     1.0, 1.4, 2.0, 2.8, 4.0, 5.6, 8.0, 11.0, 16.0, 22.0, 32.0, 45.0, 64.0,
 ];
 
+const ISO_SPEEDS: [u32; 31] = [
+    12, 16, 20, 25, 32, 40, 50, 64, 80, 100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000,
+    1250, 1600, 2000, 2500, 3200, 4000, 5000, 6400, 8000, 10_000, 12_500,
+];
+
 pub struct RandomMetadata {
     pub tags_to_randomize: HashSet<Tag>,
     thread_rng: ThreadRng,
@@ -75,6 +80,7 @@ impl Default for RandomMetadata {
                 Tag::DateTimeOriginal,
                 Tag::ExposureTime,
                 Tag::FNumber,
+                Tag::PhotographicSensitivity,
                 Tag::MeteringMode,
                 Tag::ColorSpace,
                 Tag::GPSLatitude,
@@ -116,6 +122,9 @@ impl RandomMetadata {
                     denom: rand::random::<u8>() as u32,
                 }])),
                 Tag::FNumber => Some(Value::Float(vec![*F_NUMBERS
+                    .choose(&mut self.thread_rng)
+                    .unwrap()])),
+                Tag::PhotographicSensitivity => Some(Value::Long(vec![*ISO_SPEEDS
                     .choose(&mut self.thread_rng)
                     .unwrap()])),
                 Tag::MeteringMode => Some(Value::Short(vec![self.thread_rng.gen_range(1..=6)])),
