@@ -57,7 +57,9 @@ const MANUFACTURERS: [&str; 48] = [
     "Xiaomi",
 ];
 
-const F_NUMBERS: [u32; 12] = [1, 2, 3, 4, 5, 8, 11, 16, 22, 32, 45, 64];
+const F_NUMBERS: [f32; 13] = [
+    1.0, 1.4, 2.0, 2.8, 4.0, 5.6, 8.0, 11.0, 16.0, 22.0, 32.0, 45.0, 64.0,
+];
 
 pub struct RandomMetadata {
     pub tags_to_randomize: HashSet<Tag>,
@@ -113,10 +115,9 @@ impl RandomMetadata {
                     num: 1,
                     denom: rand::random::<u8>() as u32,
                 }])),
-                Tag::FNumber => Some(Value::Rational(vec![exif::Rational {
-                    num: *F_NUMBERS.choose(&mut self.thread_rng).unwrap(),
-                    denom: self.thread_rng.gen_range(1..=3),
-                }])),
+                Tag::FNumber => Some(Value::Float(vec![*F_NUMBERS
+                    .choose(&mut self.thread_rng)
+                    .unwrap()])),
                 Tag::MeteringMode => Some(Value::Short(vec![self.thread_rng.gen_range(1..=6)])),
                 _ => None,
             }
