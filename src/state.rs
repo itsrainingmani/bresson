@@ -262,7 +262,6 @@ impl Application {
 
     pub fn keybind_rows(&self) -> Vec<Row> {
         Vec::from([
-            Row::new(vec!["q | <Esc>", "Quit"]),
             Row::new(vec!["r", "Randomize selected Metadata"]),
             Row::new(vec!["R", "Randomize all Metadata"]),
             Row::new(vec!["c | C", "Clear All Metadata"]),
@@ -272,6 +271,7 @@ impl Application {
             Row::new(vec!["g | G", "Toggle Globe Visibility"]),
             Row::new(vec!["<Spc>", "Toggle Globe Rotation"]),
             Row::new(vec!["?", "Show/Dismiss Keybind Info"]),
+            Row::new(vec!["q | <Esc>", "Quit"]),
         ])
     }
 

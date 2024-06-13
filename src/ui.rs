@@ -172,34 +172,58 @@ pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableSta
             let layout = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints(vec![
-                    Constraint::Percentage(40),
-                    Constraint::Percentage(55),
+                    Constraint::Max(5),
+                    Constraint::Max(40),
+                    Constraint::Max(50),
                     Constraint::Max(5),
                 ])
                 .split(frame.size());
-            render_metadata_table(app, frame, table_state, layout[0]);
-            render_globe(app, frame, layout[1]);
-            render_status_msg(app, frame, layout[2]);
+            render_filename(app, frame, layout[0]);
+            render_metadata_table(app, frame, table_state, layout[1]);
+            render_globe(app, frame, layout[2]);
+            render_status_msg(app, frame, layout[3]);
         } else {
             let layout = Layout::default()
                 .direction(Direction::Vertical)
-                .constraints(vec![Constraint::Percentage(95), Constraint::Max(5)])
+                .constraints(vec![
+                    Constraint::Max(5),
+                    Constraint::Max(90),
+                    Constraint::Max(5),
+                ])
                 .split(frame.size());
-            render_metadata_table(app, frame, table_state, layout[0]);
-            render_status_msg(app, frame, layout[1]);
+            render_filename(app, frame, layout[0]);
+            render_metadata_table(app, frame, table_state, layout[1]);
+            render_status_msg(app, frame, layout[2]);
         };
     } else {
         let layout = Layout::default()
             .direction(Direction::Vertical)
-            .constraints(vec![Constraint::Percentage(95), Constraint::Max(5)])
+            .constraints(vec![
+                Constraint::Max(5),
+                Constraint::Max(90),
+                Constraint::Max(5),
+            ])
             .split(frame.size());
-        render_metadata_table(app, frame, table_state, layout[0]);
-        render_status_msg(app, frame, layout[1]);
+        render_filename(app, frame, layout[0]);
+        render_metadata_table(app, frame, table_state, layout[1]);
+        render_status_msg(app, frame, layout[2]);
     }
 
     if app.show_keybinds {
         render_keybind_popup(app, frame);
     }
+}
+
+fn render_filename(app: &mut Application, frame: &mut Frame, area: Rect) {
+    frame.render_widget(
+        Paragraph::new(app.path_to_image.display().to_string()).block(
+            Block::new()
+                .title("Filename")
+                .title_style(Style::new().bold())
+                .borders(Borders::ALL),
+        ),
+        area,
+    )
 }
 
 fn render_status_msg(app: &mut Application, frame: &mut Frame, area: Rect) {
