@@ -25,10 +25,10 @@ fn main() -> Result<()> {
             if second.eq("-c") {
                 AppMode::CommandLine
             } else {
-                AppMode::Interactive
+                AppMode::InteractiveFile
             }
         }
-        None => AppMode::Interactive,
+        None => AppMode::InteractiveFile,
     };
 
     let image_file = Path::new(&image_arg);
@@ -81,7 +81,7 @@ fn main() -> Result<()> {
             // app.save_state()?;
             Ok(())
         }
-        AppMode::Interactive => {
+        AppMode::InteractiveFile => {
             tui::install_panic_hook();
             let mut terminal = tui::init_terminal()?;
             terminal.clear()?;
