@@ -78,6 +78,9 @@ fn main() -> Result<()> {
             // Print out the Exif Data in the CLI
             // app.clear_fields();
             // app.save_state()?;
+            for f in app.exif.fields() {
+                println!("Tag::{}", f.tag.to_string());
+            }
             Ok(())
         }
         AppMode::InteractiveFile => {
@@ -129,16 +132,29 @@ fn main() -> Result<()> {
                                         's' | 'S' => {
                                             // Save the state into a file copy
                                             app.save_state()?;
+                                            app.show_message("Saved app state".to_owned());
                                         }
                                         'g' | 'G' => {
                                             // Save the state into a file copy
                                             app.toggle_globe();
+                                            if app.show_globe {
+                                                app.show_message("Showing Globe".to_owned());
+                                            } else {
+                                                app.show_message("Hiding Globe".to_owned());
+                                            }
                                         }
                                         // 't' | 'T' => app.toggle_render_state(),
                                         '?' => {
                                             // Display a popup window with keybinds
                                             // toggle the show_keybinds state
                                             app.toggle_keybinds();
+                                            if app.show_keybinds {
+                                                app.show_message(
+                                                    "Showing Keybinds window".to_owned(),
+                                                );
+                                            } else {
+                                                app.show_message("Hid Keybinds window".to_owned());
+                                            }
                                         }
                                         '+' => app.camera_zoom_increase(),
                                         '-' => app.camera_zoom_decrease(),
@@ -149,7 +165,7 @@ fn main() -> Result<()> {
                                     KeyCode::Esc => {
                                         break;
                                     }
-                                    KeyCode::Down => match table_state.selected() {
+                                    KeyCode::Down | KeyCode::Tab => match table_state.selected() {
                                         Some(i) => {
                                             if i == app.modified_fields.len() - 1 {
                                                 *table_state.selected_mut() = Some(0)
@@ -159,20 +175,22 @@ fn main() -> Result<()> {
                                         }
                                         None => *table_state.selected_mut() = Some(0),
                                     },
-                                    KeyCode::Up => match table_state.selected() {
-                                        Some(i) => {
-                                            if i == 0 {
+                                    KeyCode::Up | KeyCode::BackTab => {
+                                        match table_state.selected() {
+                                            Some(i) => {
+                                                if i == 0 {
+                                                    *table_state.selected_mut() =
+                                                        Some(app.modified_fields.len() - 1)
+                                                } else {
+                                                    *table_state.selected_mut() = Some(i - 1)
+                                                }
+                                            }
+                                            None => {
                                                 *table_state.selected_mut() =
                                                     Some(app.modified_fields.len() - 1)
-                                            } else {
-                                                *table_state.selected_mut() = Some(i - 1)
                                             }
                                         }
-                                        None => {
-                                            *table_state.selected_mut() =
-                                                Some(app.modified_fields.len() - 1)
-                                        }
-                                    },
+                                    }
                                     _ => {}
                                 }
                             } else {
@@ -182,11 +200,23 @@ fn main() -> Result<()> {
                                             // Display a popup window with keybinds
                                             // toggle the show_keybinds state
                                             app.toggle_keybinds();
+                                            if app.show_keybinds {
+                                                app.show_message(
+                                                    "Showing Keybinds window".to_owned(),
+                                                );
+                                            } else {
+                                                app.show_message("Hid Keybinds window".to_owned());
+                                            }
                                         }
                                         _ => {}
                                     },
                                     KeyCode::Esc => {
                                         app.toggle_keybinds();
+                                        if app.show_keybinds {
+                                            app.show_message("Showing Keybinds window".to_owned());
+                                        } else {
+                                            app.show_message("Hid Keybinds window".to_owned());
+                                        }
                                     }
                                     _ => {}
                                 }
