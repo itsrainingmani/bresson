@@ -107,7 +107,7 @@ fn render_globe(app: &mut Application, frame: &mut Frame, area: Rect) {
                                     && i == (size_y / 2) - 1
                                     && j == (size_x / 2) - 1
                                 {
-                                    x.to_string().red().bold().slow_blink()
+                                    x.to_string().red().bold().rapid_blink()
                                 } else {
                                     x.to_string().into()
                                 };
@@ -200,41 +200,41 @@ pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableSta
             let layout = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints(vec![
-                    Constraint::Max(5),
-                    Constraint::Max(40),
+                    // Constraint::Max(5),
+                    Constraint::Max(45),
                     Constraint::Max(50),
                     Constraint::Max(5),
                 ])
                 .split(frame.size());
-            render_filename(app, frame, layout[0]);
-            render_metadata_table(app, frame, table_state, layout[1]);
-            render_globe(app, frame, layout[2]);
-            render_status_msg(app, frame, layout[3]);
+            // render_filename(app, frame, layout[0]);
+            render_metadata_table(app, frame, table_state, layout[0]);
+            render_globe(app, frame, layout[1]);
+            render_status_msg(app, frame, layout[2]);
         } else {
             let layout = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints(vec![
-                    Constraint::Max(5),
-                    Constraint::Max(90),
+                    // Constraint::Max(5),
+                    Constraint::Max(95),
                     Constraint::Max(5),
                 ])
                 .split(frame.size());
-            render_filename(app, frame, layout[0]);
-            render_metadata_table(app, frame, table_state, layout[1]);
-            render_status_msg(app, frame, layout[2]);
+            // render_filename(app, frame, layout[0]);
+            render_metadata_table(app, frame, table_state, layout[0]);
+            render_status_msg(app, frame, layout[1]);
         };
     } else {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![
-                Constraint::Max(5),
-                Constraint::Max(90),
+                // Constraint::Max(5),
+                Constraint::Max(95),
                 Constraint::Max(5),
             ])
             .split(frame.size());
-        render_filename(app, frame, layout[0]);
-        render_metadata_table(app, frame, table_state, layout[1]);
-        render_status_msg(app, frame, layout[2]);
+        // render_filename(app, frame, layout[0]);
+        render_metadata_table(app, frame, table_state, layout[0]);
+        render_status_msg(app, frame, layout[1]);
     }
 
     if app.show_keybinds {
