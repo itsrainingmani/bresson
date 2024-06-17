@@ -1,19 +1,92 @@
 use crate::globe::Globe;
-use crate::utils::floyd_steinberg;
 use anyhow::Result;
 use core::f32;
 use exif::{experimental::Writer, Exif, Field, In, Rational, SRational, Tag, Value};
-use image::Rgb;
-use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
 use ratatui::{layout::Rect, widgets::Row};
 use ratatui_image::{protocol::StatefulProtocol, Resize};
 use std::{
+    collections::HashMap,
     io::{self, Read, Write},
     path::{Path, PathBuf},
     sync::mpsc::Sender,
 };
 
 use crate::{randomize::RandomMetadata, utils};
+
+const MAIN_EXIF_FIELDS: [Tag; 16] = [
+    Tag::Make,
+    Tag::Model,
+    Tag::DateTimeOriginal,
+    Tag::ExposureTime,
+    Tag::ExposureBiasValue,
+    Tag::FNumber,
+    Tag::PhotographicSensitivity,
+    Tag::FocalLength,
+    Tag::WhiteBalance,
+    Tag::MeteringMode,
+    Tag::GPSLatitude,
+    Tag::GPSLatitudeRef,
+    Tag::GPSLongitude,
+    Tag::GPSLongitudeRef,
+    Tag::LensModel,
+    Tag::Flash,
+];
+
+const OTHER_EXIF_FIELDS: [Tag; 51] = [
+    Tag::Orientation,
+    Tag::XResolution,
+    Tag::YResolution,
+    Tag::ResolutionUnit,
+    Tag::Software,
+    Tag::DateTime,
+    Tag::YCbCrPositioning,
+    Tag::ExposureProgram,
+    Tag::ExifVersion,
+    Tag::DateTimeDigitized,
+    Tag::OffsetTime,
+    Tag::OffsetTimeOriginal,
+    Tag::OffsetTimeDigitized,
+    Tag::ComponentsConfiguration,
+    Tag::ShutterSpeedValue,
+    Tag::ApertureValue,
+    Tag::BrightnessValue,
+    Tag::SubjectArea,
+    Tag::MakerNote,
+    Tag::SubSecTimeOriginal,
+    Tag::SubSecTimeDigitized,
+    Tag::FlashpixVersion,
+    Tag::ColorSpace,
+    Tag::PixelXDimension,
+    Tag::PixelYDimension,
+    Tag::SensingMethod,
+    Tag::SceneType,
+    Tag::ExposureMode,
+    Tag::DigitalZoomRatio,
+    Tag::FocalLengthIn35mmFilm,
+    Tag::SceneCaptureType,
+    Tag::LensSpecification,
+    Tag::LensMake,
+    Tag::CompositeImage,
+    Tag::GPSAltitudeRef,
+    Tag::GPSAltitude,
+    Tag::GPSTimeStamp,
+    Tag::GPSSpeedRef,
+    Tag::GPSSpeed,
+    Tag::GPSImgDirectionRef,
+    Tag::GPSImgDirection,
+    Tag::GPSDestBearingRef,
+    Tag::GPSDestBearing,
+    Tag::GPSDateStamp,
+    Tag::GPSHPositioningError,
+    Tag::Compression,
+    Tag::XResolution,
+    Tag::YResolution,
+    Tag::ResolutionUnit,
+    Tag::JPEGInterchangeFormat,
+    Tag::JPEGInterchangeFormatLength,
+];
+
+const METADATA_COUNT: usize = 67;
 
 // Step one is taking a given image file and read out some of the super basic metadata about it
 
@@ -37,6 +110,12 @@ pub enum Cardinal {
     South,
 }
 
+#[derive(Debug, Clone)]
+pub struct MetadataVal {
+    field: Field,
+    hidden: bool,
+}
+
 #[derive(Debug)]
 pub struct GPSInfo {
     latitude: f32,
@@ -44,10 +123,6 @@ pub struct GPSInfo {
     longitude: f32,
     long_direction: Cardinal,
 }
-
-// impl Into<Value> for GPSInfo {
-//
-// }
 
 pub struct CameraSettings {
     zoom: f32,
@@ -68,52 +143,14 @@ impl Default for GPSInfo {
 
 pub type ExifTags = Vec<Field>;
 
-/// A widget that uses a custom ThreadProtocol as state to offload resizing and encoding
-/// to a background thread
-pub struct ThreadImage {
-    pub resize: Resize,
-}
-
-impl ThreadImage {
-    pub fn new() -> ThreadImage {
-        ThreadImage {
-            resize: Resize::Fit,
-        }
-    }
-
-    pub fn resize(mut self, resize: Resize) -> ThreadImage {
-        self.resize = resize;
-        self
-    }
-}
-
-/// The state of a ThreadImage.
-///
-/// Has `inner` [ResizeProtocol] that is sent off to the `tx` mspc channel to do the
-/// `resize_encode()` work.
-pub struct ThreadProtocol {
-    pub inner: Option<Box<dyn StatefulProtocol>>,
-    pub tx: Sender<(Box<dyn StatefulProtocol>, Resize, Rect)>,
-}
-
-impl ThreadProtocol {
-    pub fn new(
-        tx: Sender<(Box<dyn StatefulProtocol>, Resize, Rect)>,
-        inner: Box<dyn StatefulProtocol>,
-    ) -> ThreadProtocol {
-        ThreadProtocol {
-            inner: Some(inner),
-            tx,
-        }
-    }
-}
-
 pub struct Application {
     pub path_to_image: PathBuf,
     pub exif: Exif,
     pub original_fields: ExifTags,
     pub modified_fields: ExifTags,
     pub randomizer: RandomMetadata,
+    pub exif_map: HashMap<Tag, MetadataVal>,
+    // pub modified_fields: HashMap<Tag, MetadataVal>,
 
     // pub async_state: ThreadProtocol,
     pub render_state: RenderState,
@@ -148,20 +185,22 @@ impl Application {
         // let mut picker = Picker::from_termios().unwrap();
         // picker.guess_protocol();
         // picker.background_color = Some(Rgb::<u8>([255, 0, 255]));
-
         // let dyn_img = image::io::Reader::open(path_to_image)?.decode()?;
 
-        let mut exif_data_rows: ExifTags = Vec::new();
+        let mut exif_data_rows: ExifTags = Vec::with_capacity(exif.fields().count());
+        let mut exif_data_map = HashMap::with_capacity(exif.fields().count());
         for f in exif.fields() {
-            match f.tag {
-                Tag::GPSLatitude | Tag::GPSLongitude => {
-                    has_gps = true;
-                    exif_data_rows.push(f.clone());
-                }
-                _ => {
-                    exif_data_rows.push(f.clone());
-                }
+            if f.tag == Tag::GPSLatitude || f.tag == Tag::GPSLongitude {
+                has_gps = true;
             }
+            exif_data_rows.push(f.clone());
+            exif_data_map.insert(
+                f.tag,
+                MetadataVal {
+                    field: f.clone(),
+                    hidden: false,
+                },
+            );
         }
 
         let gps_info = if has_gps {
@@ -257,6 +296,7 @@ impl Application {
             show_keybinds: false,
             should_rotate: false || !has_gps,
             show_globe: true,
+            exif_map: exif_data_map,
         })
     }
 
@@ -283,66 +323,72 @@ impl Application {
     }
 
     pub fn process_rows(&self, term_width: u16) -> Vec<Row> {
-        let mut exif_data_rows = Vec::new();
-
-        for f in &self.modified_fields {
-            let f_val = f.tag.to_string();
-            if f_val.len() > 0 {
-                let data_row = match &f.value {
-                    Value::Ascii(x) => {
-                        if x.iter().all(|x| x.len() > 0) {
-                            vec![
-                                self.tag_desc(f),
-                                utils::clean_disp(
-                                    &f.display_value().with_unit(&self.exif).to_string(),
-                                ),
-                            ]
-                        } else {
-                            vec![self.tag_desc(f), String::from("")]
+        let mut exif_data_rows = Vec::with_capacity(METADATA_COUNT);
+        let all_exif_tags: Vec<&Tag> = MAIN_EXIF_FIELDS
+            .iter()
+            .chain(OTHER_EXIF_FIELDS.iter())
+            .collect();
+        for (idx, t) in all_exif_tags.iter().enumerate() {
+            if let Some(m) = self.exif_map.get(t) {
+                let f = &m.field;
+                let f_val = f.tag.to_string();
+                if f_val.len() > 0 {
+                    let data_row = match &f.value {
+                        Value::Ascii(x) => {
+                            if x.iter().all(|x| x.len() > 0) {
+                                vec![
+                                    self.tag_desc(f),
+                                    utils::clean_disp(
+                                        &f.display_value().with_unit(&self.exif).to_string(),
+                                    ),
+                                ]
+                            } else {
+                                vec![self.tag_desc(f), String::from("")]
+                            }
                         }
-                    }
-                    _ => match f.tag {
-                        Tag::GPSLatitude => {
-                            let lat_dir = self
-                                .modified_fields
-                                .iter()
-                                .find(|f| f.tag == Tag::GPSLatitudeRef)
-                                .unwrap();
-                            vec![
-                                self.tag_desc(f),
-                                format!(
-                                    "{} {}",
-                                    utils::clean_disp(&f.display_value().to_string()),
-                                    lat_dir.display_value()
-                                ),
-                            ]
-                        }
-                        Tag::GPSLongitude => {
-                            let long_dir = self
-                                .modified_fields
-                                .iter()
-                                .find(|f| f.tag == Tag::GPSLongitudeRef)
-                                .unwrap();
-                            vec![
-                                self.tag_desc(f),
-                                format!(
-                                    "{} {}",
-                                    utils::clean_disp(&f.display_value().to_string()),
-                                    long_dir.display_value()
-                                ),
-                            ]
-                        }
-                        _ => {
-                            vec![
-                                self.tag_desc(f),
-                                utils::clean_disp(
-                                    &f.display_value().with_unit(&self.exif).to_string(),
-                                ),
-                            ]
-                        }
-                    },
-                };
-                exif_data_rows.push(data_row);
+                        _ => match f.tag {
+                            Tag::GPSLatitude => {
+                                let lat_dir = self
+                                    .modified_fields
+                                    .iter()
+                                    .find(|f| f.tag == Tag::GPSLatitudeRef)
+                                    .unwrap();
+                                vec![
+                                    self.tag_desc(f),
+                                    format!(
+                                        "{} {}",
+                                        utils::clean_disp(&f.display_value().to_string()),
+                                        lat_dir.display_value()
+                                    ),
+                                ]
+                            }
+                            Tag::GPSLongitude => {
+                                let long_dir = self
+                                    .modified_fields
+                                    .iter()
+                                    .find(|f| f.tag == Tag::GPSLongitudeRef)
+                                    .unwrap();
+                                vec![
+                                    self.tag_desc(f),
+                                    format!(
+                                        "{} {}",
+                                        utils::clean_disp(&f.display_value().to_string()),
+                                        long_dir.display_value()
+                                    ),
+                                ]
+                            }
+                            _ => {
+                                vec![
+                                    self.tag_desc(f),
+                                    utils::clean_disp(
+                                        &f.display_value().with_unit(&self.exif).to_string(),
+                                    ),
+                                ]
+                            }
+                        },
+                    };
+                    exif_data_rows.push(data_row);
+                }
             }
         }
 
