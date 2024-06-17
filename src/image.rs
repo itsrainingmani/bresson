@@ -1,7 +1,7 @@
 use std::sync::mpsc::Sender;
 
 use ratatui::layout::Rect;
-use ratatui_image::{protocol::StatefulProtocol, Resize};
+use ratatui_image::{protocol::StatefulProtocol, FilterType, Resize};
 
 /// A widget that uses a custom ThreadProtocol as state to offload resizing and encoding
 /// to a background thread
@@ -12,7 +12,7 @@ pub struct ThreadImage {
 impl ThreadImage {
     pub fn new() -> ThreadImage {
         ThreadImage {
-            resize: Resize::Fit,
+            resize: Resize::Fit(Some(FilterType::Gaussian)),
         }
     }
 
