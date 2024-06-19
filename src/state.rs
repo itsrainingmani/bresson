@@ -395,6 +395,22 @@ impl Application {
                 if total_length as u16 >= term_width {
                     height += 1
                 };
+                // let tag = data.get(0).unwrap();
+                // let mut val = data.get(1).unwrap().chars();
+                // let sub_string = (0..)
+                //     .map(|_| val.by_ref().take(term_width as usize).collect::<String>())
+                //     .take_while(|s| !s.is_empty())
+                //     .map(|s| Line::from(s))
+                //     .collect::<Vec<_>>();
+
+                // let lines = Text::from(sub_string);
+
+                // Row::new(vec![
+                //     Cell::from(Text::from(tag.to_owned())),
+                //     Cell::from(lines),
+                // ])
+                // .height(height)
+
                 Row::new(data.clone()).height(height)
             })
             .collect::<Vec<Row>>()
