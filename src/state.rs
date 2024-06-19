@@ -13,7 +13,7 @@ use std::{
 
 use crate::{randomize::RandomMetadata, utils};
 
-const MAIN_EXIF_FIELDS: [Tag; 16] = [
+const EXIF_FIELDS_ORDERED: [Tag; 67] = [
     Tag::Make,
     Tag::Model,
     Tag::DateTimeOriginal,
@@ -30,9 +30,6 @@ const MAIN_EXIF_FIELDS: [Tag; 16] = [
     Tag::GPSLongitudeRef,
     Tag::LensModel,
     Tag::Flash,
-];
-
-const OTHER_EXIF_FIELDS: [Tag; 51] = [
     Tag::Orientation,
     Tag::XResolution,
     Tag::YResolution,
@@ -85,6 +82,8 @@ const OTHER_EXIF_FIELDS: [Tag; 51] = [
     Tag::JPEGInterchangeFormat,
     Tag::JPEGInterchangeFormatLength,
 ];
+
+// const OTHER_EXIF_FIELDS: [Tag; 51] = [];
 
 const METADATA_COUNT: usize = 67;
 
@@ -150,7 +149,6 @@ pub struct Application {
     pub modified_fields: ExifTags,
     pub randomizer: RandomMetadata,
     pub exif_map: HashMap<Tag, MetadataVal>,
-    // pub modified_fields: HashMap<Tag, MetadataVal>,
 
     // pub async_state: ThreadProtocol,
     pub render_state: RenderState,
@@ -176,7 +174,6 @@ impl Application {
         _tx_worker: Sender<(Box<dyn StatefulProtocol>, Resize, Rect)>,
     ) -> Result<Self> {
         let file = std::fs::File::open(path_to_image)?;
-        // println!("Size of img is {}", file.metadata()?.len());
 
         let mut bufreader = std::io::BufReader::new(&file);
         let exifreader = exif::Reader::new();
@@ -187,20 +184,22 @@ impl Application {
         // picker.background_color = Some(Rgb::<u8>([255, 0, 255]));
         // let dyn_img = image::io::Reader::open(path_to_image)?.decode()?;
 
-        let mut exif_data_rows: ExifTags = Vec::with_capacity(exif.fields().count());
-        let mut exif_data_map = HashMap::with_capacity(exif.fields().count());
+        let mut exif_data_rows: ExifTags = Vec::new();
+        let mut exif_data_map = HashMap::new();
         for f in exif.fields() {
             if f.tag == Tag::GPSLatitude || f.tag == Tag::GPSLongitude {
                 has_gps = true;
             }
-            exif_data_rows.push(f.clone());
-            exif_data_map.insert(
-                f.tag,
-                MetadataVal {
-                    field: f.clone(),
-                    hidden: false,
-                },
-            );
+            if EXIF_FIELDS_ORDERED.binary_search(&f.tag).is_ok() {
+                exif_data_rows.push(f.clone());
+                exif_data_map.insert(
+                    f.tag,
+                    MetadataVal {
+                        field: f.clone(),
+                        hidden: false,
+                    },
+                );
+            }
         }
 
         let gps_info = if has_gps {
@@ -323,12 +322,8 @@ impl Application {
     }
 
     pub fn process_rows(&self, term_width: u16) -> Vec<Row> {
-        let mut exif_data_rows = Vec::with_capacity(METADATA_COUNT);
-        let all_exif_tags: Vec<&Tag> = MAIN_EXIF_FIELDS
-            .iter()
-            .chain(OTHER_EXIF_FIELDS.iter())
-            .collect();
-        for (idx, t) in all_exif_tags.iter().enumerate() {
+        let mut exif_data_rows = Vec::new();
+        for (_idx, t) in EXIF_FIELDS_ORDERED.iter().enumerate() {
             if let Some(m) = self.exif_map.get(t) {
                 let f = &m.field;
                 let f_val = f.tag.to_string();
