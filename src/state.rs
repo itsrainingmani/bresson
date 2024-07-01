@@ -2,19 +2,12 @@ use anyhow::Result;
 use core::f32;
 use exif::{experimental::Writer, Exif, Field, In, Rational, SRational, Tag, Value};
 use globe::Globe;
-use ratatui::{
-    layout::Rect,
-    style::{Style, Stylize},
-    text::{Line, Text},
-    widgets::{Cell, Paragraph, Row, Wrap},
-};
+use ratatui::{layout::Rect, widgets::Row};
 use ratatui_image::{protocol::StatefulProtocol, Resize};
 use std::{
     collections::HashMap,
     io::{self, Read, Write},
     path::{Path, PathBuf},
-    slice::Chunks,
-    str::Chars,
     sync::mpsc::Sender,
 };
 
@@ -89,10 +82,6 @@ const EXIF_FIELDS_ORDERED: [Tag; 67] = [
     Tag::JPEGInterchangeFormat,
     Tag::JPEGInterchangeFormatLength,
 ];
-
-// const OTHER_EXIF_FIELDS: [Tag; 51] = [];
-
-const METADATA_COUNT: usize = 67;
 
 // Step one is taking a given image file and read out some of the super basic metadata about it
 
@@ -402,23 +391,16 @@ impl Application {
                 if total_length as u16 >= term_width {
                     height += 1
                 };
-                // let tag = data.get(0).unwrap();
+                Row::new(data.clone()).height(height)
+                // let tag = data.get(0).unwrap().clone();
                 // let mut val = data.get(1).unwrap().chars();
                 // let sub_string = (0..)
                 //     .map(|_| val.by_ref().take(term_width as usize).collect::<String>())
                 //     .take_while(|s| !s.is_empty())
-                //     .map(|s| Line::from(s))
-                //     .collect::<Vec<_>>();
-
-                // let lines = Text::from(sub_string);
-
-                // Row::new(vec![
-                //     Cell::from(Text::from(tag.to_owned())),
-                //     Cell::from(lines),
-                // ])
-                // .height(height)
-
-                Row::new(data.clone()).height(height)
+                //     .collect::<Vec<_>>()
+                //     .join("\n");
+                // let height = sub_string.chars().filter(|x| *x == '\n').count();
+                // Row::new(vec![tag, sub_string]).height(if height == 0 { 1 } else { height as u16 })
             })
             .collect::<Vec<Row>>()
     }
