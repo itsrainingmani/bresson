@@ -1,9 +1,6 @@
-use anyhow::Result;
-use bresson::globe::Globe;
-use bresson::{state::*, ui::*};
+use bresson::{globe::Globe, state::*, tui, ui::*};
 use ratatui_image::{protocol::StatefulProtocol, Resize};
 use std::{path::Path, sync::mpsc, thread, time::Duration};
-use tui::restore_terminal;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{prelude::*, widgets::TableState};
@@ -13,7 +10,7 @@ enum AppEvent {
     Redraw(Box<dyn StatefulProtocol>),
 }
 
-fn main() -> Result<()> {
+fn main() -> anyhow::Result<()> {
     if std::env::args().len() < 2 {
         std::process::exit(1);
     }
@@ -36,11 +33,10 @@ fn main() -> Result<()> {
         eprintln!("Image not present");
         return Ok(());
     }
+
     let cam_zoom = 1.5;
-    let cam_xy = 0.;
-    let cam_z = 0.;
-    let mut globe = Globe::new(1., 0., false);
-    globe.camera.update(cam_zoom, cam_xy, cam_z);
+    let mut globe = Globe::new(1.5, 0., false);
+    globe.camera.update(cam_zoom, 0., 0.);
 
     // Send a [ResizeProtocol] to resize and encode it in a separate thread.
     let (tx_worker, rec_worker) = mpsc::channel::<(Box<dyn StatefulProtocol>, Resize, Rect)>();
@@ -143,7 +139,7 @@ fn main() -> Result<()> {
                                                 app.show_message("Hiding Globe".to_owned());
                                             }
                                         }
-                                        // 't' | 'T' => app.toggle_render_state(),
+                                        't' | 'T' => app.toggle_render_state(),
                                         '?' => {
                                             // Display a popup window with keybinds
                                             // toggle the show_keybinds state
@@ -222,7 +218,7 @@ fn main() -> Result<()> {
                                 }
                             }
                         }
-                        _ => {} // AppEvent::Redraw(protocol) => app.async_state.inner = Some(protocol),
+                        AppEvent::Redraw(protocol) => app.async_state.set_protocol(protocol),
                     }
                 }
 
@@ -230,44 +226,7 @@ fn main() -> Result<()> {
                     app.rotate_globe();
                 }
             }
-            restore_terminal()
+            tui::restore_terminal()
         }
-    }
-}
-
-mod tui {
-    use anyhow::Result;
-    use crossterm::{
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-        ExecutableCommand,
-    };
-    use ratatui::{
-        backend::Backend,
-        prelude::{CrosstermBackend, Terminal},
-    };
-    use std::{io::stdout, panic};
-
-    // Have the terminal be generic over a backend
-    pub fn init_terminal() -> Result<Terminal<impl Backend>> {
-        enable_raw_mode()?;
-        stdout().execute(EnterAlternateScreen)?;
-        let terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
-        Ok(terminal)
-    }
-
-    pub fn install_panic_hook() {
-        let original_hook = panic::take_hook();
-        panic::set_hook(Box::new(move |panic_info| {
-            stdout().execute(LeaveAlternateScreen).unwrap();
-            disable_raw_mode().unwrap();
-            original_hook(panic_info);
-        }));
-    }
-
-    pub fn restore_terminal() -> Result<()> {
-        stdout().execute(LeaveAlternateScreen)?;
-        disable_raw_mode()?;
-
-        Ok(())
     }
 }

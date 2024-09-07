@@ -14,7 +14,7 @@ categories = ["command-line-utilities"]
 anyhow = "1.0.79"
 chrono = "0.4.31"
 crossterm = "0.27.0"
-image = "0.24.8"
+image = ">=0.24"
 kamadak-exif = "0.5.5"
 rand = "0.8.5"
 ratatui = { version = "0.26.3", features = ["all-widgets"] }

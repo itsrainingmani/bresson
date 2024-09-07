@@ -1,9 +1,8 @@
-use crate::globe::Globe;
 use anyhow::Result;
 use core::f32;
-use exif::{experimental::Writer, Exif, Field, In, Rational, SRational, Tag, Value};
+use exif::{experimental::Writer, Exif, Field, In, Rational, Reader, SRational, Tag, Value};
 use ratatui::{layout::Rect, widgets::Row};
-use ratatui_image::{protocol::StatefulProtocol, Resize};
+use ratatui_image::{picker::Picker, protocol::StatefulProtocol, thread::ThreadProtocol, Resize};
 use std::{
     collections::HashMap,
     io::{self, Read, Write},
@@ -11,77 +10,12 @@ use std::{
     sync::mpsc::Sender,
 };
 
-use crate::{randomize::RandomMetadata, utils};
-
-const EXIF_FIELDS_ORDERED: [Tag; 67] = [
-    Tag::Make,
-    Tag::Model,
-    Tag::DateTimeOriginal,
-    Tag::ExposureTime,
-    Tag::ExposureBiasValue,
-    Tag::FNumber,
-    Tag::PhotographicSensitivity,
-    Tag::FocalLength,
-    Tag::WhiteBalance,
-    Tag::MeteringMode,
-    Tag::GPSLatitude,
-    Tag::GPSLatitudeRef,
-    Tag::GPSLongitude,
-    Tag::GPSLongitudeRef,
-    Tag::LensModel,
-    Tag::Flash,
-    Tag::Orientation,
-    Tag::XResolution,
-    Tag::YResolution,
-    Tag::ResolutionUnit,
-    Tag::Software,
-    Tag::DateTime,
-    Tag::YCbCrPositioning,
-    Tag::ExposureProgram,
-    Tag::ExifVersion,
-    Tag::DateTimeDigitized,
-    Tag::OffsetTime,
-    Tag::OffsetTimeOriginal,
-    Tag::OffsetTimeDigitized,
-    Tag::ComponentsConfiguration,
-    Tag::ShutterSpeedValue,
-    Tag::ApertureValue,
-    Tag::BrightnessValue,
-    Tag::SubjectArea,
-    Tag::MakerNote,
-    Tag::SubSecTimeOriginal,
-    Tag::SubSecTimeDigitized,
-    Tag::FlashpixVersion,
-    Tag::ColorSpace,
-    Tag::PixelXDimension,
-    Tag::PixelYDimension,
-    Tag::SensingMethod,
-    Tag::SceneType,
-    Tag::ExposureMode,
-    Tag::DigitalZoomRatio,
-    Tag::FocalLengthIn35mmFilm,
-    Tag::SceneCaptureType,
-    Tag::LensSpecification,
-    Tag::LensMake,
-    Tag::CompositeImage,
-    Tag::GPSAltitudeRef,
-    Tag::GPSAltitude,
-    Tag::GPSTimeStamp,
-    Tag::GPSSpeedRef,
-    Tag::GPSSpeed,
-    Tag::GPSImgDirectionRef,
-    Tag::GPSImgDirection,
-    Tag::GPSDestBearingRef,
-    Tag::GPSDestBearing,
-    Tag::GPSDateStamp,
-    Tag::GPSHPositioningError,
-    Tag::Compression,
-    Tag::XResolution,
-    Tag::YResolution,
-    Tag::ResolutionUnit,
-    Tag::JPEGInterchangeFormat,
-    Tag::JPEGInterchangeFormatLength,
-];
+use crate::{
+    globe::*,
+    order::{self, OrderedTags},
+    randomize::RandomMetadata,
+    utils,
+};
 
 // Step one is taking a given image file and read out some of the super basic metadata about it
 
@@ -108,7 +42,6 @@ pub enum Cardinal {
 #[derive(Debug, Clone)]
 pub struct MetadataVal {
     field: Field,
-    hidden: bool,
 }
 
 #[derive(Debug)]
@@ -145,8 +78,9 @@ pub struct Application {
     pub modified_fields: ExifTags,
     pub randomizer: RandomMetadata,
     pub exif_map: HashMap<Tag, MetadataVal>,
+    pub ordered_tags: OrderedTags,
 
-    // pub async_state: ThreadProtocol,
+    pub async_state: ThreadProtocol,
     pub render_state: RenderState,
 
     pub status_msg: String,
@@ -160,6 +94,7 @@ pub struct Application {
     pub show_keybinds: bool,
     pub should_rotate: bool,
     pub show_globe: bool,
+    pub show_image: bool,
 }
 
 impl Application {
@@ -167,34 +102,31 @@ impl Application {
         path_to_image: &Path,
         g: Globe,
         app_mode: AppMode,
-        _tx_worker: Sender<(Box<dyn StatefulProtocol>, Resize, Rect)>,
+        tx_worker: Sender<(Box<dyn StatefulProtocol>, Resize, Rect)>,
     ) -> Result<Self> {
         let file = std::fs::File::open(path_to_image)?;
 
         let mut bufreader = std::io::BufReader::new(&file);
-        let exifreader = exif::Reader::new();
+        let exifreader = Reader::new();
         let exif = exifreader.read_from_container(&mut bufreader)?;
         let mut has_gps = false;
-        // let mut picker = Picker::from_termios().unwrap();
-        // picker.guess_protocol();
-        // picker.background_color = Some(Rgb::<u8>([255, 0, 255]));
-        // let dyn_img = image::io::Reader::open(path_to_image)?.decode()?;
+        let dyn_img = image::DynamicImage::from(image::open(path_to_image)?);
+
+        // If the picker doesn't work, we should do something to fail over safely
+        let mut picker = Picker::from_termios().unwrap();
+        picker.guess_protocol();
+        picker.background_color = Some(image::Rgb::<u8>([255, 0, 255]));
 
         let mut exif_data_rows: ExifTags = Vec::new();
         let mut exif_data_map = HashMap::new();
+        let ordered_tags = OrderedTags::new();
         for f in exif.fields() {
             if f.tag == Tag::GPSLatitude || f.tag == Tag::GPSLongitude {
                 has_gps = true;
             }
-            if EXIF_FIELDS_ORDERED.binary_search(&f.tag).is_ok() {
+            if ordered_tags.tags.contains(&f.tag) {
                 exif_data_rows.push(f.clone());
-                exif_data_map.insert(
-                    f.tag,
-                    MetadataVal {
-                        field: f.clone(),
-                        hidden: false,
-                    },
-                );
+                exif_data_map.insert(f.tag, MetadataVal { field: f.clone() });
             }
         }
 
@@ -275,8 +207,9 @@ impl Application {
             exif,
             original_fields: exif_data_rows.clone(),
             modified_fields: exif_data_rows.clone(),
+            ordered_tags,
             randomizer: RandomMetadata::default(),
-            // async_state: ThreadProtocol::new(tx_worker, picker.new_resize_protocol(dyn_img)),
+            async_state: ThreadProtocol::new(tx_worker, picker.new_resize_protocol(dyn_img)),
             render_state: RenderState::Globe,
             status_msg: String::new(),
             globe: g,
@@ -291,6 +224,7 @@ impl Application {
             show_keybinds: false,
             should_rotate: false || !has_gps,
             show_globe: true,
+            show_image: true,
             exif_map: exif_data_map,
         })
     }
@@ -302,7 +236,7 @@ impl Application {
             Row::new(vec!["c | C", "Clear All Metadata"]),
             Row::new(vec!["o | O", "Restore Metadata"]),
             Row::new(vec!["s | S", "Save a Copy"]),
-            // Row::new(vec!["t | T", "Toggle between Thumbnail and Globe"]),
+            Row::new(vec!["t | T", "Toggle between Thumbnail and Globe"]),
             Row::new(vec!["g | G", "Toggle Globe Visibility"]),
             Row::new(vec!["<Spc>", "Toggle Globe Rotation"]),
             Row::new(vec!["?", "Show/Dismiss Keybind Info"]),
@@ -319,7 +253,7 @@ impl Application {
 
     pub fn process_rows(&self, term_width: u16) -> Vec<Row> {
         let mut exif_data_rows = Vec::new();
-        for (_idx, t) in EXIF_FIELDS_ORDERED.iter().enumerate() {
+        for (_idx, t) in order::EXIF_FIELDS_ORDERED.iter().enumerate() {
             if let Some(m) = self.exif_map.get(t) {
                 let f = &m.field;
                 let f_val = f.tag.to_string();

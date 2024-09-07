@@ -1,5 +1,4 @@
-use crate::globe::{self};
-use crate::state::*;
+use crate::{globe, state::*};
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     prelude::*,
@@ -8,6 +7,7 @@ use ratatui::{
     widgets::{canvas::*, Block, Borders, Clear, Paragraph, Row, Table, TableState},
     Frame,
 };
+use ratatui_image::{thread::ThreadImage, Resize};
 
 fn render_filename(app: &mut Application, frame: &mut Frame, area: Rect) {
     frame.render_widget(
@@ -152,77 +152,43 @@ fn render_keybind_popup(app: &mut Application, frame: &mut Frame) {
     )
 }
 
-// impl StatefulWidget for ThreadImage {
-//     type State = ThreadProtocol;
-//
-//     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-//         state.inner = match state.inner.take() {
-//             // We have the `protocol` and should either resize or render.
-//             Some(mut protocol) => {
-//                 // If it needs resizing (grow or shrink) then send it away instead of rendering.
-//                 if let Some(rect) = protocol.needs_resize(&self.resize, area) {
-//                     state.tx.send((protocol, self.resize, rect)).unwrap();
-//                     None
-//                 } else {
-//                     protocol.render(area, buf);
-//                     Some(protocol)
-//                 }
-//             }
-//             // We are waiting to get back the protocol.
-//             None => None,
-//         };
-//     }
-// }
+fn render_image(app: &mut Application, frame: &mut Frame, area: Rect) {
+    let collapsed_top_border_set = symbols::border::Set {
+        top_left: symbols::line::NORMAL.vertical_right,
+        top_right: symbols::line::NORMAL.vertical_left,
+        ..symbols::border::PLAIN
+    };
 
-// fn render_image(app: &mut Application, frame: &mut Frame, area: Rect) {
-//     let collapsed_top_border_set = symbols::border::Set {
-//         top_left: symbols::line::NORMAL.vertical_right,
-//         top_right: symbols::line::NORMAL.vertical_left,
-//         ..symbols::border::PLAIN
-//     };
-//
-//     let block = Block::default()
-//         .title("Thumbnail")
-//         .title_style(Style::new().bold())
-//         .border_set(collapsed_top_border_set)
-//         .borders(Borders::ALL);
-//
-//     let rect = centered_rect(block.inner(area), 50, 100);
-//     let image = ThreadImage::new().resize(Resize::Fit);
-//
-//     frame.render_widget(block.clone(), area);
-//     frame.render_stateful_widget(image, rect, &mut app.async_state);
-// }
-//
+    let block = Block::default()
+        .title("Thumbnail")
+        .title_style(Style::new().bold())
+        .border_set(collapsed_top_border_set)
+        .borders(Borders::ALL);
+
+    let rect = centered_rect(block.inner(area), 50, 100);
+    let image = ThreadImage::default().resize(Resize::Fit(None));
+
+    frame.render_stateful_widget(image, rect, &mut app.async_state);
+    frame.render_widget(block.clone(), area);
+}
+
 pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableState) {
     if app.has_gps {
-        if app.show_globe {
-            let layout = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints(vec![
-                    // Constraint::Max(5),
-                    Constraint::Max(45),
-                    Constraint::Max(50),
-                    Constraint::Max(5),
-                ])
-                .split(frame.size());
-            // render_filename(app, frame, layout[0]);
-            render_metadata_table(app, frame, table_state, layout[0]);
-            render_globe(app, frame, layout[1]);
-            render_status_msg(app, frame, layout[2]);
-        } else {
-            let layout = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints(vec![
-                    // Constraint::Max(5),
-                    Constraint::Max(95),
-                    Constraint::Max(5),
-                ])
-                .split(frame.size());
-            // render_filename(app, frame, layout[0]);
-            render_metadata_table(app, frame, table_state, layout[0]);
-            render_status_msg(app, frame, layout[1]);
+        let layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(vec![
+                // Constraint::Max(5),
+                Constraint::Max(45),
+                Constraint::Max(50),
+                Constraint::Max(5),
+            ])
+            .split(frame.size());
+        render_metadata_table(app, frame, table_state, layout[0]);
+        match app.render_state {
+            RenderState::Globe => render_globe(app, frame, layout[1]),
+            RenderState::Thumbnail => render_image(app, frame, layout[1]),
         };
+        render_status_msg(app, frame, layout[2]);
     } else {
         let layout = Layout::default()
             .direction(Direction::Vertical)
@@ -232,7 +198,6 @@ pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableSta
                 Constraint::Max(5),
             ])
             .split(frame.size());
-        // render_filename(app, frame, layout[0]);
         render_metadata_table(app, frame, table_state, layout[0]);
         render_status_msg(app, frame, layout[1]);
     }
