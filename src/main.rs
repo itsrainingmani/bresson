@@ -35,7 +35,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     let cam_zoom = 1.5;
-    let mut globe = Globe::new(1.5, 0., false);
+    let mut globe = Globe::new(1., 0., false);
     globe.camera.update(cam_zoom, 0., 0.);
 
     // Send a [ResizeProtocol] to resize and encode it in a separate thread.
@@ -131,11 +131,11 @@ fn main() -> anyhow::Result<()> {
                                             app.show_message("Saved app state".to_owned());
                                         }
                                         'g' | 'G' => {
-                                            // Save the state into a file copy
                                             app.toggle_globe();
                                             if app.show_globe {
                                                 app.show_message("Showing Globe".to_owned());
                                             } else {
+                                                app.should_rotate = false;
                                                 app.show_message("Hiding Globe".to_owned());
                                             }
                                         }

@@ -17,6 +17,35 @@ use crate::{
     utils,
 };
 
+pub type ExifTags = Vec<Field>;
+
+// Metadata
+//
+// Structure for defining how the metadata should be represented by Bresson
+// It should be easier to store this and implement methods to manipulate it
+// inside one struct than have it splintered inside State Management
+//
+// Ordering of Metadata should be available from this module
+// Randomizing should be available from this module
+// Editing and Clearing should be available from this mdule
+//
+// We always need to maintain a copy of the original fields so we can restore
+// them after making an arbitrary number of changes
+//
+// The UI should always display the most recently modified value for any row
+// We can store this in a different struct field
+//
+// We also want to maintain some method of ordering the fields that we want to display, which we can do via OrderedTags
+//
+// Might be easier to store both the original fields and the modified fields as hashmaps of tags -> values and then exclusively use the provided ordering structure
+// and hashmap retrieval to get the stored values
+
+#[derive(Debug, Clone)]
+pub struct MetadataVal {
+    pub field: Field,
+    pub changed: bool,
+}
+
 // Step one is taking a given image file and read out some of the super basic metadata about it
 
 #[derive(Debug, Clone, Copy)]
@@ -37,11 +66,6 @@ pub enum Cardinal {
     East,
     West,
     South,
-}
-
-#[derive(Debug, Clone)]
-pub struct MetadataVal {
-    field: Field,
 }
 
 #[derive(Debug)]
@@ -69,15 +93,12 @@ impl Default for GPSInfo {
     }
 }
 
-pub type ExifTags = Vec<Field>;
-
 pub struct Application {
     pub path_to_image: PathBuf,
     pub exif: Exif,
-    pub original_fields: ExifTags,
-    pub modified_fields: ExifTags,
+    pub original_fields: HashMap<Tag, MetadataVal>,
+    pub modified_fields: HashMap<Tag, MetadataVal>,
     pub randomizer: RandomMetadata,
-    pub exif_map: HashMap<Tag, MetadataVal>,
     pub ordered_tags: OrderedTags,
 
     pub async_state: ThreadProtocol,
@@ -117,7 +138,6 @@ impl Application {
         picker.guess_protocol();
         picker.background_color = Some(image::Rgb::<u8>([255, 0, 255]));
 
-        let mut exif_data_rows: ExifTags = Vec::new();
         let mut exif_data_map = HashMap::new();
         let ordered_tags = OrderedTags::new();
         for f in exif.fields() {
@@ -125,8 +145,13 @@ impl Application {
                 has_gps = true;
             }
             if ordered_tags.tags.contains(&f.tag) {
-                exif_data_rows.push(f.clone());
-                exif_data_map.insert(f.tag, MetadataVal { field: f.clone() });
+                exif_data_map.insert(
+                    f.tag,
+                    MetadataVal {
+                        field: f.clone(),
+                        changed: false,
+                    },
+                );
             }
         }
 
@@ -205,8 +230,8 @@ impl Application {
         Ok(Self {
             path_to_image: path_to_image.to_path_buf(),
             exif,
-            original_fields: exif_data_rows.clone(),
-            modified_fields: exif_data_rows.clone(),
+            original_fields: exif_data_map.clone(),
+            modified_fields: exif_data_map.clone(),
             ordered_tags,
             randomizer: RandomMetadata::default(),
             async_state: ThreadProtocol::new(tx_worker, picker.new_resize_protocol(dyn_img)),
@@ -225,7 +250,6 @@ impl Application {
             should_rotate: false || !has_gps,
             show_globe: true,
             show_image: true,
-            exif_map: exif_data_map,
         })
     }
 
@@ -254,7 +278,7 @@ impl Application {
     pub fn process_rows(&self, term_width: u16) -> Vec<Row> {
         let mut exif_data_rows = Vec::new();
         for (_idx, t) in order::EXIF_FIELDS_ORDERED.iter().enumerate() {
-            if let Some(m) = self.exif_map.get(t) {
+            if let Some(m) = self.modified_fields.get(t) {
                 let f = &m.field;
                 let f_val = f.tag.to_string();
                 if f_val.len() > 0 {
@@ -271,34 +295,24 @@ impl Application {
                                 vec![self.tag_desc(f), String::from("")]
                             }
                         }
-                        _ => match f.tag {
+                        _ => match *t {
                             Tag::GPSLatitude => {
-                                let lat_dir = self
-                                    .modified_fields
-                                    .iter()
-                                    .find(|f| f.tag == Tag::GPSLatitudeRef)
-                                    .unwrap();
                                 vec![
                                     self.tag_desc(f),
                                     format!(
                                         "{} {}",
                                         utils::clean_disp(&f.display_value().to_string()),
-                                        lat_dir.display_value()
+                                        &f.display_value()
                                     ),
                                 ]
                             }
                             Tag::GPSLongitude => {
-                                let long_dir = self
-                                    .modified_fields
-                                    .iter()
-                                    .find(|f| f.tag == Tag::GPSLongitudeRef)
-                                    .unwrap();
                                 vec![
                                     self.tag_desc(f),
                                     format!(
                                         "{} {}",
                                         utils::clean_disp(&f.display_value().to_string()),
-                                        long_dir.display_value()
+                                        &f.display_value()
                                     ),
                                 ]
                             }
@@ -402,22 +416,24 @@ impl Application {
     }
 
     pub fn randomize(&mut self, index: usize) {
-        let field_at_index = self.modified_fields.get_mut(index).unwrap();
-        match field_at_index.tag {
-            Tag::DateTimeOriginal | Tag::DateTime | Tag::DateTimeDigitized => {
-                let new_dt = self.randomizer.randomize_datetime();
-                self.sync_date_fields(new_dt);
-                self.status_msg = String::from("Randomized DateTime");
-            }
-            Tag::GPSLatitude | Tag::GPSLatitudeRef => self.sync_latitude(),
-            Tag::GPSLongitude | Tag::GPSLongitudeRef => self.sync_longitude(),
-            _ => {
-                if let Some(v) = self.randomizer.randomize_tag(field_at_index.tag) {
-                    field_at_index.value = v;
-                    self.status_msg = format!("Randomized {}", field_at_index.tag.to_string());
-                } else {
-                    self.status_msg =
-                        format!("Cannot randomize {}", field_at_index.tag.to_string());
+        let tag_at_index = order::EXIF_FIELDS_ORDERED.get(index).unwrap();
+        if let Some(field_in_map) = self.modified_fields.get_mut(&tag_at_index) {
+            field_in_map.changed = true;
+            match *tag_at_index {
+                Tag::DateTimeOriginal | Tag::DateTime | Tag::DateTimeDigitized => {
+                    let new_dt = self.randomizer.randomize_datetime();
+                    self.sync_date_fields(new_dt);
+                    self.status_msg = String::from("Randomized DateTime");
+                }
+                Tag::GPSLatitude | Tag::GPSLatitudeRef => self.sync_latitude(),
+                Tag::GPSLongitude | Tag::GPSLongitudeRef => self.sync_longitude(),
+                _ => {
+                    if let Some(v) = self.randomizer.randomize_tag(*tag_at_index) {
+                        field_in_map.field.value = v.clone();
+                        self.status_msg = format!("Randomized {}", tag_at_index.to_string());
+                    } else {
+                        self.status_msg = format!("Cannot randomize {}", tag_at_index.to_string());
+                    }
                 }
             }
         }
@@ -425,10 +441,12 @@ impl Application {
 
     fn sync_latitude(&mut self) {
         let (new_lat, lat_dir) = self.randomizer.random_latlong(Cardinal::North);
-        for f in self.modified_fields.iter_mut() {
-            match f.tag {
-                Tag::GPSLatitudeRef => f.value = Value::Ascii(vec![lat_dir.bytes().collect()]),
-                Tag::GPSLatitude => f.value = new_lat.clone(),
+        for (&t, m) in self.modified_fields.iter_mut() {
+            match t {
+                Tag::GPSLatitudeRef => {
+                    m.field.value = Value::Ascii(vec![lat_dir.bytes().collect()])
+                }
+                Tag::GPSLatitude => m.field.value = new_lat.clone(),
                 _ => {}
             }
         }
@@ -436,20 +454,22 @@ impl Application {
 
     fn sync_longitude(&mut self) {
         let (new_long, long_dir) = self.randomizer.random_latlong(Cardinal::East);
-        for f in self.modified_fields.iter_mut() {
-            match f.tag {
-                Tag::GPSLongitudeRef => f.value = Value::Ascii(vec![long_dir.bytes().collect()]),
-                Tag::GPSLongitude => f.value = new_long.clone(),
+        for (&t, m) in self.modified_fields.iter_mut() {
+            match t {
+                Tag::GPSLongitudeRef => {
+                    m.field.value = Value::Ascii(vec![long_dir.bytes().collect()])
+                }
+                Tag::GPSLongitude => m.field.value = new_long.clone(),
                 _ => {}
             }
         }
     }
 
     fn sync_date_fields(&mut self, new_dt: String) {
-        for f in self.modified_fields.iter_mut() {
-            match f.tag {
+        for (&t, m) in self.modified_fields.iter_mut() {
+            match t {
                 Tag::DateTime | Tag::DateTimeOriginal | Tag::DateTimeDigitized => {
-                    f.value = Value::Ascii(vec![Vec::from(new_dt.clone())]);
+                    m.field.value = Value::Ascii(vec![Vec::from(new_dt.clone())]);
                 }
                 _ => {}
             }
@@ -457,74 +477,35 @@ impl Application {
     }
 
     pub fn clear_fields(&mut self) {
-        self.modified_fields = self
-            .modified_fields
-            .iter()
-            .map(|f| match &f.value {
-                Value::Ascii(x) => {
-                    let mut empty_vec: Vec<Vec<u8>> = Vec::with_capacity(x.len());
-                    for i in x {
-                        empty_vec.push(vec![0; i.len()]);
+        self.modified_fields
+            .iter_mut()
+            .map(|(_, m)| {
+                m.field.value = match m.field.value.clone() {
+                    Value::Ascii(x) => {
+                        let mut empty_vec: Vec<Vec<u8>> = Vec::with_capacity(x.len());
+                        for i in x {
+                            empty_vec.push(vec![0; i.len()]);
+                        }
+                        Value::Ascii(empty_vec)
                     }
-                    Field {
-                        tag: f.tag,
-                        ifd_num: f.ifd_num,
-                        value: Value::Ascii(empty_vec),
+                    Value::Byte(x) => Value::Byte(vec![0; x.len()]),
+                    Value::Short(x) => Value::Short(vec![0; x.len()]),
+                    Value::Long(x) => Value::Long(vec![0; x.len()]),
+                    Value::Rational(x) => {
+                        Value::Rational(vec![Rational { num: 0, denom: 0 }; x.len()])
                     }
+                    Value::SByte(x) => Value::SByte(vec![0; x.len()]),
+                    Value::SShort(x) => Value::SShort(vec![0; x.len()]),
+                    Value::SLong(x) => Value::SLong(vec![0; x.len()]),
+                    Value::SRational(x) => {
+                        Value::SRational(vec![SRational { num: 0, denom: 0 }; x.len()])
+                    }
+                    Value::Float(x) => Value::Float(vec![0.; x.len()]),
+                    Value::Double(x) => Value::Double(vec![0.; x.len()]),
+                    _ => m.field.value.clone(),
                 }
-                Value::Byte(x) => Field {
-                    tag: f.tag,
-                    ifd_num: f.ifd_num,
-                    value: Value::Byte(vec![0; x.len()]),
-                },
-                Value::Short(x) => Field {
-                    tag: f.tag,
-                    ifd_num: f.ifd_num,
-                    value: Value::Short(vec![0; x.len()]),
-                },
-                Value::Long(x) => Field {
-                    tag: f.tag,
-                    ifd_num: f.ifd_num,
-                    value: Value::Long(vec![0; x.len()]),
-                },
-                Value::Rational(x) => Field {
-                    tag: f.tag,
-                    ifd_num: f.ifd_num,
-                    value: Value::Rational(vec![Rational { num: 0, denom: 0 }; x.len()]),
-                },
-                Value::SByte(x) => Field {
-                    tag: f.tag,
-                    ifd_num: f.ifd_num,
-                    value: Value::SByte(vec![0; x.len()]),
-                },
-                Value::SShort(x) => Field {
-                    tag: f.tag,
-                    ifd_num: f.ifd_num,
-                    value: Value::SShort(vec![0; x.len()]),
-                },
-                Value::SLong(x) => Field {
-                    tag: f.tag,
-                    ifd_num: f.ifd_num,
-                    value: Value::SLong(vec![0; x.len()]),
-                },
-                Value::SRational(x) => Field {
-                    tag: f.tag,
-                    ifd_num: f.ifd_num,
-                    value: Value::SRational(vec![SRational { num: 0, denom: 0 }; x.len()]),
-                },
-                Value::Float(x) => Field {
-                    tag: f.tag,
-                    ifd_num: f.ifd_num,
-                    value: Value::Float(vec![0.; x.len()]),
-                },
-                Value::Double(x) => Field {
-                    tag: f.tag,
-                    ifd_num: f.ifd_num,
-                    value: Value::Double(vec![0.; x.len()]),
-                },
-                _ => f.clone(),
             })
-            .collect();
+            .collect()
     }
 
     fn create_copy_file_name(&self) -> PathBuf {
@@ -551,8 +532,8 @@ impl Application {
 
         // Modified fields will always have the latest modifications to the state of the
         // Exif Metadata (including randomization and clearing)
-        for f in &self.modified_fields {
-            exif_writer.push_field(&f);
+        for (_, m) in &self.modified_fields {
+            exif_writer.push_field(&m.field);
         }
 
         // https://github.com/kamadak/exif-rs/blob/a8883a6597f2ba9eb8c9b1cb38bfa61a5cc67837/tests/rwrcmp.rs#L90

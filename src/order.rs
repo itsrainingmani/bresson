@@ -84,3 +84,11 @@ impl OrderedTags {
         }
     }
 }
+
+impl Default for OrderedTags {
+    fn default() -> Self {
+        Self {
+            tags: BTreeSet::from(EXIF_FIELDS_ORDERED),
+        }
+    }
+}
