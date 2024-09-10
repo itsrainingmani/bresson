@@ -41,11 +41,7 @@ fn render_metadata_table(
                     .title("Image Metadata")
                     .title_style(Style::new().bold())
                     .border_set(symbols::border::ROUNDED)
-                    .borders(if app.show_globe || app.show_image {
-                        Borders::TOP | Borders::RIGHT | Borders::LEFT
-                    } else {
-                        Borders::ALL
-                    }), // .padding(Padding::uniform(1)),
+                    .borders(Borders::TOP | Borders::RIGHT | Borders::LEFT), // .padding(Padding::uniform(1)),
             )
             .header(Row::new(vec!["Tag", "Data"]).bold().underlined())
             .highlight_style(
@@ -181,7 +177,7 @@ fn render_keybind_popup(app: &mut Application, frame: &mut Frame) {
 }
 
 pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableState) {
-    if app.has_gps {
+    if app.show_mini {
         let layout = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![

@@ -73,6 +73,10 @@ impl MetadataVal {
             _ => self.field.value.clone(),
         };
     }
+
+    pub fn display_val(&self) -> String {
+        self.field.value.display_as(self.field.tag).to_string()
+    }
 }
 
 impl PartialEq for MetadataVal {
@@ -83,6 +87,13 @@ impl PartialEq for MetadataVal {
             .to_string()
             .eq(&other.field.value.display_as(self.field.tag).to_string())
     }
+}
+
+enum Operation {
+    Randomize((Field, Field)),
+    Clear((Field, Field)),
+    RandomizeAll,
+    ClearAll,
 }
 
 // Step one is taking a given image file and read out some of the super basic metadata about it
@@ -154,8 +165,7 @@ pub struct Application {
     pub camera_settings: CameraSettings,
     pub show_keybinds: bool,
     pub should_rotate: bool,
-    pub show_globe: bool,
-    pub show_image: bool,
+    pub show_mini: bool,
 }
 
 impl Application {
@@ -289,8 +299,7 @@ impl Application {
             },
             show_keybinds: false,
             should_rotate: false || !has_gps,
-            show_globe: true,
-            show_image: true,
+            show_mini: true,
         })
     }
 
@@ -397,7 +406,7 @@ impl Application {
     }
 
     pub fn toggle_globe(&mut self) {
-        self.show_globe = !self.show_globe
+        self.show_mini = !self.show_mini
     }
 
     pub fn camera_zoom_increase(&mut self) {
@@ -496,16 +505,40 @@ impl Application {
         }
     }
 
-    pub fn undo_operation(&mut self) {
+    fn find_index(&self, tag_to_find: &Tag) -> Option<usize> {
+        for (i, t) in order::EXIF_FIELDS_ORDERED.iter().enumerate() {
+            if t == tag_to_find {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    pub fn undo_operation(&mut self) -> Option<usize> {
         if let Some((old_f, new_f)) = self.ring_buffer.pop_back() {
             if let Some(metadata_to_modify) = self.modified_fields.get_mut(&new_f.tag) {
-                metadata_to_modify.field = old_f;
-                if let Some(original_metadata) = self.original_fields.get(&new_f.tag) {
-                    if metadata_to_modify == original_metadata {
-                        metadata_to_modify.changed = false;
-                    }
+                metadata_to_modify.field = old_f.clone();
+                let original_metadata = self.original_fields.get(&new_f.tag).unwrap();
+                if metadata_to_modify == original_metadata {
+                    metadata_to_modify.changed = false;
                 }
+                let mut og_val = old_f.display_value().to_string();
+                let new_val = new_f.display_value().to_string();
+                if !metadata_to_modify.changed {
+                    og_val += " (original)";
+                }
+                self.show_message(format!(
+                    "Changed {} from {} to {}",
+                    &new_f.tag.to_string(),
+                    new_val,
+                    og_val
+                ));
+                self.find_index(&new_f.tag)
+            } else {
+                None
             }
+        } else {
+            None
         }
     }
 
