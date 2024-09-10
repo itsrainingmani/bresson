@@ -97,7 +97,13 @@ fn main() -> anyhow::Result<()> {
                             if key.kind == KeyEventKind::Press && !app.show_keybinds {
                                 match key.code {
                                     KeyCode::Char(c) => match c {
-                                        'u' => app.undo_operation(),
+                                        'u' => {
+                                            if let Some(table_index) = app.undo_operation() {
+                                                table_state.select(Some(table_index));
+                                            } else {
+                                                app.show_message("Nothing to Undo!".to_owned());
+                                            }
+                                        }
                                         'U' => {
                                             // Show Original Data
                                             app.modified_fields = app.original_fields.clone();
@@ -137,7 +143,7 @@ fn main() -> anyhow::Result<()> {
                                         }
                                         'g' | 'G' => {
                                             app.toggle_globe();
-                                            if app.show_globe {
+                                            if app.show_mini {
                                                 app.show_message("Showing Globe".to_owned());
                                             } else {
                                                 app.should_rotate = false;
@@ -169,27 +175,25 @@ fn main() -> anyhow::Result<()> {
                                     KeyCode::Down | KeyCode::Tab => match table_state.selected() {
                                         Some(i) => {
                                             if i == app.modified_fields.len() - 1 {
-                                                *table_state.selected_mut() = Some(0)
+                                                table_state.select(Some(0))
                                             } else {
-                                                *table_state.selected_mut() = Some(i + 1)
+                                                table_state.select(Some(i + 1))
                                             }
                                         }
-                                        None => *table_state.selected_mut() = Some(0),
+                                        None => table_state.select(Some(0)),
                                     },
                                     KeyCode::Up | KeyCode::BackTab => {
                                         match table_state.selected() {
                                             Some(i) => {
                                                 if i == 0 {
-                                                    *table_state.selected_mut() =
-                                                        Some(app.modified_fields.len() - 1)
+                                                    table_state
+                                                        .select(Some(app.modified_fields.len() - 1))
                                                 } else {
-                                                    *table_state.selected_mut() = Some(i - 1)
+                                                    table_state.select(Some(i - 1))
                                                 }
                                             }
-                                            None => {
-                                                *table_state.selected_mut() =
-                                                    Some(app.modified_fields.len() - 1)
-                                            }
+                                            None => table_state
+                                                .select(Some(app.modified_fields.len() - 1)),
                                         }
                                     }
                                     _ => {}
