@@ -1,10 +1,14 @@
 use anyhow::Result;
 use core::f32;
 use exif::{experimental::Writer, Exif, Field, In, Rational, Reader, SRational, Tag, Value};
-use ratatui::{layout::Rect, widgets::Row};
+use ratatui::{
+    layout::Rect,
+    style::{Style, Stylize},
+    widgets::{Cell, Row},
+};
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol, thread::ThreadProtocol, Resize};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     io::{self, Read, Write},
     path::{Path, PathBuf},
     sync::mpsc::Sender,
@@ -101,12 +105,6 @@ pub struct GPSInfo {
     long_direction: Cardinal,
 }
 
-pub struct CameraSettings {
-    zoom: f32,
-    alpha: f32, // Rotation along xy-axis
-    beta: f32,  // Rotation along z-axis
-}
-
 impl Default for GPSInfo {
     fn default() -> Self {
         Self {
@@ -118,6 +116,12 @@ impl Default for GPSInfo {
     }
 }
 
+pub struct CameraSettings {
+    zoom: f32,
+    alpha: f32, // Rotation along xy-axis
+    beta: f32,  // Rotation along z-axis
+}
+
 pub struct Application {
     pub path_to_image: PathBuf,
     pub exif: Exif,
@@ -125,6 +129,7 @@ pub struct Application {
     pub modified_fields: HashMap<Tag, MetadataVal>,
     pub randomizer: RandomMetadata,
     pub ordered_tags: OrderedTags,
+    pub ring_buffer: VecDeque<(Field, Field)>,
 
     pub async_state: ThreadProtocol,
     pub render_state: RenderState,
@@ -258,6 +263,7 @@ impl Application {
             original_fields: exif_data_map.clone(),
             modified_fields: exif_data_map.clone(),
             ordered_tags,
+            ring_buffer: VecDeque::with_capacity(50),
             randomizer: RandomMetadata::default(),
             async_state: ThreadProtocol::new(tx_worker, picker.new_resize_protocol(dyn_img)),
             render_state: RenderState::Globe,
@@ -284,7 +290,8 @@ impl Application {
             Row::new(vec!["R", "Randomize all Metadata"]),
             Row::new(vec!["c", "Clear selected Metadata"]),
             Row::new(vec!["C", "Clear All Metadata"]),
-            Row::new(vec!["o | O", "Restore Metadata"]),
+            Row::new(vec!["u", "Undo change"]),
+            Row::new(vec!["U", "Undo all changes"]),
             Row::new(vec!["s | S", "Save a Copy"]),
             Row::new(vec!["t | T", "Toggle between Thumbnail and Globe"]),
             Row::new(vec!["g | G", "Toggle Globe Visibility"]),
@@ -308,50 +315,43 @@ impl Application {
                 let f = &m.field;
                 let f_val = f.tag.to_string();
                 if f_val.len() > 0 {
-                    let data_row = match &f.value {
-                        Value::Ascii(x) => {
-                            if x.iter().all(|x| x.len() > 0) {
-                                vec![
-                                    self.tag_desc(f),
+                    let data_row = vec![
+                        Cell::from(self.tag_desc(f)),
+                        Cell::from(match &f.value {
+                            Value::Ascii(x) => {
+                                if x.iter().all(|x| x.len() > 0) {
                                     utils::clean_disp(
                                         &f.display_value().with_unit(&self.exif).to_string(),
-                                    ),
-                                ]
-                            } else {
-                                vec![self.tag_desc(f), String::from("")]
+                                    )
+                                } else {
+                                    String::from("")
+                                }
                             }
-                        }
-                        _ => match *t {
-                            Tag::GPSLatitude => {
-                                vec![
-                                    self.tag_desc(f),
+                            _ => match *t {
+                                Tag::GPSLatitude => {
                                     format!(
                                         "{} {}",
                                         utils::clean_disp(&f.display_value().to_string()),
                                         &f.display_value()
-                                    ),
-                                ]
-                            }
-                            Tag::GPSLongitude => {
-                                vec![
-                                    self.tag_desc(f),
+                                    )
+                                }
+                                Tag::GPSLongitude => {
                                     format!(
                                         "{} {}",
                                         utils::clean_disp(&f.display_value().to_string()),
                                         &f.display_value()
-                                    ),
-                                ]
-                            }
-                            _ => {
-                                vec![
-                                    self.tag_desc(f),
-                                    utils::clean_disp(
-                                        &f.display_value().with_unit(&self.exif).to_string(),
-                                    ),
-                                ]
-                            }
-                        },
-                    };
+                                    )
+                                }
+                                _ => utils::clean_disp(
+                                    &f.display_value().with_unit(&self.exif).to_string(),
+                                ),
+                            },
+                        })
+                        .style(match m.changed {
+                            true => Style::new().red().italic(),
+                            false => Style::default(),
+                        }),
+                    ];
                     exif_data_rows.push(data_row);
                 }
             }
@@ -360,12 +360,12 @@ impl Application {
         exif_data_rows
             .iter()
             .map(|data| {
-                let mut height = 1;
-                let total_length: usize = data.iter().map(|d| d.len()).sum();
-                if total_length as u16 >= term_width {
-                    height += 1
-                };
-                Row::new(data.clone()).height(height)
+                // let mut height = 1;
+                // let total_length: usize = data.iter().map(|d| d..len()).sum();
+                // if total_length as u16 >= term_width {
+                //     height += 1
+                // };
+                Row::new(data.clone())
                 // let tag = data.get(0).unwrap().clone();
                 // let mut val = data.get(1).unwrap().chars();
                 // let sub_string = (0..)
@@ -449,16 +449,17 @@ impl Application {
                 Tag::DateTimeOriginal | Tag::DateTime | Tag::DateTimeDigitized => {
                     let new_dt = self.randomizer.randomize_datetime();
                     self.sync_date_fields(new_dt);
-                    self.status_msg = String::from("Randomized DateTime");
+                    self.show_message(String::from("Randomized DateTime"));
                 }
                 Tag::GPSLatitude | Tag::GPSLatitudeRef => self.sync_latitude(),
                 Tag::GPSLongitude | Tag::GPSLongitudeRef => self.sync_longitude(),
                 _ => {
                     if let Some(v) = self.randomizer.randomize_tag(*tag_at_index) {
                         field_in_map.field.value = v.clone();
-                        self.status_msg = format!("Randomized {}", tag_at_index.to_string());
+                        self.show_message(format!("Randomized {}", tag_at_index.to_string()));
                     } else {
-                        self.status_msg = format!("Cannot randomize {}", tag_at_index.to_string());
+                        field_in_map.changed = false;
+                        self.show_message(format!("Cannot randomize {}", tag_at_index.to_string()));
                     }
                 }
             }
@@ -475,7 +476,7 @@ impl Application {
         let tag_at_index = order::EXIF_FIELDS_ORDERED.get(index).unwrap();
         if let Some(field_in_map) = self.modified_fields.get_mut(&tag_at_index) {
             field_in_map.clear();
-            self.status_msg = format!("Cleared {}", tag_at_index.to_string());
+            self.show_message(format!("Cleared {}", tag_at_index.to_string()));
         }
     }
 
@@ -484,9 +485,13 @@ impl Application {
         for (&t, m) in self.modified_fields.iter_mut() {
             match t {
                 Tag::GPSLatitudeRef => {
+                    m.changed = true;
                     m.field.value = Value::Ascii(vec![lat_dir.bytes().collect()])
                 }
-                Tag::GPSLatitude => m.field.value = new_lat.clone(),
+                Tag::GPSLatitude => {
+                    m.changed = true;
+                    m.field.value = new_lat.clone()
+                }
                 _ => {}
             }
         }
@@ -497,9 +502,13 @@ impl Application {
         for (&t, m) in self.modified_fields.iter_mut() {
             match t {
                 Tag::GPSLongitudeRef => {
+                    m.changed = true;
                     m.field.value = Value::Ascii(vec![long_dir.bytes().collect()])
                 }
-                Tag::GPSLongitude => m.field.value = new_long.clone(),
+                Tag::GPSLongitude => {
+                    m.changed = true;
+                    m.field.value = new_long.clone();
+                }
                 _ => {}
             }
         }
@@ -509,6 +518,7 @@ impl Application {
         for (&t, m) in self.modified_fields.iter_mut() {
             match t {
                 Tag::DateTime | Tag::DateTimeOriginal | Tag::DateTimeDigitized => {
+                    m.changed = true;
                     m.field.value = Value::Ascii(vec![Vec::from(new_dt.clone())]);
                 }
                 _ => {}

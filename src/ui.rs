@@ -50,7 +50,6 @@ fn render_metadata_table(
             .header(Row::new(vec!["Tag", "Data"]).bold().underlined())
             .highlight_style(
                 Style::new()
-                    .cyan()
                     .add_modifier(Modifier::BOLD)
                     .bg(Color::DarkGray),
             )

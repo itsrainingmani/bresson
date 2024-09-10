@@ -97,7 +97,7 @@ fn main() -> anyhow::Result<()> {
                             if key.kind == KeyEventKind::Press && !app.show_keybinds {
                                 match key.code {
                                     KeyCode::Char(c) => match c {
-                                        'o' | 'O' => {
+                                        'u' | 'U' => {
                                             // Show Original Data
                                             app.modified_fields = app.original_fields.clone();
                                             if app.has_gps && !app.should_rotate {
