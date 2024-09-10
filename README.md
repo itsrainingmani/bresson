@@ -4,6 +4,8 @@ Bresson is an EXIF Metadata Processing TUI (Terminal User Interface) built in Ru
 
 Bresson was initially conceived as an exploration of terminal interfaces and immediate-mode rendering during my Winter 2' 2024 Batch at the [Recurse Center](https://recurse.com).
 
+![bresson](https://github.com/user-attachments/assets/80313921-dfd3-4c3c-b1f5-3ed8fddb1955)
+
 ## What does it do?
 
 Bresson allows you to inspect & modify the Exif metadata for a given image inside your terminal.
