@@ -150,7 +150,7 @@ pub struct Application {
     pub modified_fields: HashMap<Tag, MetadataVal>,
     pub randomizer: RandomMetadata,
     pub ordered_tags: OrderedTags,
-    pub ring_buffer: VecDeque<(Field, Field)>,
+    pub ring_buffer: VecDeque<Operation>,
 
     pub async_state: ThreadProtocol,
     pub render_state: RenderState,
@@ -308,11 +308,11 @@ impl Application {
             Row::new(vec!["r", "Randomize selected Metadata"]),
             Row::new(vec!["R", "Randomize all Metadata"]),
             Row::new(vec!["c", "Clear selected Metadata"]),
-            Row::new(vec!["C", "Clear All Metadata"]),
+            Row::new(vec!["C", "Clear all Metadata"]),
             Row::new(vec!["u", "Undo change"]),
-            Row::new(vec!["U", "Undo all changes"]),
+            Row::new(vec!["U", "Undo all changes \ Restore"]),
             Row::new(vec!["s | S", "Save a Copy"]),
-            Row::new(vec!["t | T", "Toggle between Thumbnail and Globe"]),
+            Row::new(vec!["t | T", "Toggle Thumbnail or Globe"]),
             Row::new(vec!["g | G", "Toggle Globe Visibility"]),
             Row::new(vec!["<Spc>", "Toggle Globe Rotation"]),
             Row::new(vec!["?", "Show/Dismiss Keybind Info"]),
@@ -456,11 +456,12 @@ impl Application {
 
     pub fn randomize_all(&mut self) {
         for i in 0..self.modified_fields.len() {
-            self.randomize(i);
+            self.randomize(i, true);
         }
+        self.ring_buffer.push_back(Operation::RandomizeAll);
     }
 
-    pub fn randomize(&mut self, index: usize) {
+    pub fn randomize(&mut self, index: usize, all: bool) {
         let tag_at_index = order::EXIF_FIELDS_ORDERED.get(index).unwrap();
         if let Some(field_in_map) = self.modified_fields.get_mut(&tag_at_index) {
             field_in_map.changed = true;
@@ -476,8 +477,12 @@ impl Application {
                     if let Some(v) = self.randomizer.randomize_tag(*tag_at_index) {
                         let old_field = field_in_map.field.clone();
                         field_in_map.field.value = v.clone();
-                        self.ring_buffer
-                            .push_back((old_field, field_in_map.field.clone()));
+                        if !all {
+                            self.ring_buffer.push_back(Operation::Randomize((
+                                old_field,
+                                field_in_map.field.clone(),
+                            )))
+                        };
                         self.show_message(format!("Randomized {}", tag_at_index.to_string()));
                     } else {
                         field_in_map.changed = false;
@@ -490,17 +495,20 @@ impl Application {
 
     pub fn clear_all_fields(&mut self) {
         for i in 0..self.modified_fields.len() {
-            self.clear_field(i);
+            self.clear_field(i, true);
         }
+        self.ring_buffer.push_back(Operation::ClearAll);
     }
 
-    pub fn clear_field(&mut self, index: usize) {
+    pub fn clear_field(&mut self, index: usize, all: bool) {
         let tag_at_index = order::EXIF_FIELDS_ORDERED.get(index).unwrap();
         if let Some(field_in_map) = self.modified_fields.get_mut(&tag_at_index) {
             let old_field = field_in_map.field.clone();
             field_in_map.clear();
-            self.ring_buffer
-                .push_back((old_field, field_in_map.field.clone()));
+            if !all {
+                self.ring_buffer
+                    .push_back(Operation::Clear((old_field, field_in_map.field.clone())))
+            };
             self.show_message(format!("Cleared {}", tag_at_index.to_string()));
         }
     }
@@ -515,27 +523,35 @@ impl Application {
     }
 
     pub fn undo_operation(&mut self) -> Option<usize> {
-        if let Some((old_f, new_f)) = self.ring_buffer.pop_back() {
-            if let Some(metadata_to_modify) = self.modified_fields.get_mut(&new_f.tag) {
-                metadata_to_modify.field = old_f.clone();
-                let original_metadata = self.original_fields.get(&new_f.tag).unwrap();
-                if metadata_to_modify == original_metadata {
-                    metadata_to_modify.changed = false;
+        if let Some(op) = self.ring_buffer.pop_back() {
+            match op {
+                Operation::Randomize((old_f, new_f)) | Operation::Clear((old_f, new_f)) => {
+                    if let Some(metadata_to_modify) = self.modified_fields.get_mut(&new_f.tag) {
+                        metadata_to_modify.field = old_f.clone();
+                        let original_metadata = self.original_fields.get(&new_f.tag).unwrap();
+                        if metadata_to_modify == original_metadata {
+                            metadata_to_modify.changed = false;
+                        }
+                        let mut og_val = old_f.display_value().to_string();
+                        let new_val = new_f.display_value().to_string();
+                        if !metadata_to_modify.changed {
+                            og_val += " (original)";
+                        }
+                        self.show_message(format!(
+                            "Changed {} from {} to {}",
+                            &new_f.tag.to_string(),
+                            new_val,
+                            og_val
+                        ));
+                        self.find_index(&new_f.tag)
+                    } else {
+                        None
+                    }
                 }
-                let mut og_val = old_f.display_value().to_string();
-                let new_val = new_f.display_value().to_string();
-                if !metadata_to_modify.changed {
-                    og_val += " (original)";
+                Operation::RandomizeAll | Operation::ClearAll => {
+                    self.modified_fields = self.original_fields.clone();
+                    Some(0)
                 }
-                self.show_message(format!(
-                    "Changed {} from {} to {}",
-                    &new_f.tag.to_string(),
-                    new_val,
-                    og_val
-                ));
-                self.find_index(&new_f.tag)
-            } else {
-                None
             }
         } else {
             None

@@ -116,7 +116,7 @@ fn main() -> anyhow::Result<()> {
                                             // Only randomize the selected element based on table state
                                             match table_state.selected() {
                                                 Some(index) => {
-                                                    app.randomize(index);
+                                                    app.randomize(index, false);
                                                 }
                                                 None => {}
                                             }
@@ -128,7 +128,7 @@ fn main() -> anyhow::Result<()> {
                                         }
                                         'c' => match table_state.selected() {
                                             Some(index) => {
-                                                app.clear_field(index);
+                                                app.clear_field(index, false);
                                             }
                                             None => {}
                                         },
