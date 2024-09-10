@@ -89,7 +89,7 @@ impl PartialEq for MetadataVal {
     }
 }
 
-enum Operation {
+pub enum Operation {
     Randomize((Field, Field)),
     Clear((Field, Field)),
     RandomizeAll,
@@ -150,7 +150,7 @@ pub struct Application {
     pub modified_fields: HashMap<Tag, MetadataVal>,
     pub randomizer: RandomMetadata,
     pub ordered_tags: OrderedTags,
-    pub ring_buffer: VecDeque<Operation>,
+    ring_buffer: VecDeque<Operation>,
 
     pub async_state: ThreadProtocol,
     pub render_state: RenderState,
@@ -327,7 +327,7 @@ impl Application {
             .to_string()
     }
 
-    pub fn process_rows(&self, term_width: u16) -> Vec<Row> {
+    pub fn process_rows(&self, _term_width: u16) -> Vec<Row> {
         let mut exif_data_rows = Vec::new();
         for (_idx, t) in order::EXIF_FIELDS_ORDERED.iter().enumerate() {
             if let Some(m) = self.modified_fields.get(t) {

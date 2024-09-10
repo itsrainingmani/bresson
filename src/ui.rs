@@ -9,7 +9,7 @@ use ratatui::{
 };
 use ratatui_image::{thread::ThreadImage, Resize};
 
-fn render_filename(app: &mut Application, frame: &mut Frame, area: Rect) {
+fn _render_filename(app: &mut Application, frame: &mut Frame, area: Rect) {
     frame.render_widget(
         Paragraph::new(app.path_to_image.display().to_string())
             .style(Style::new().italic().bold().green())
