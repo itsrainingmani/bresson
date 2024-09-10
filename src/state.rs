@@ -46,6 +46,31 @@ pub struct MetadataVal {
     pub changed: bool,
 }
 
+impl MetadataVal {
+    pub fn clear(&mut self) {
+        self.field.value = match self.field.value.clone() {
+            Value::Ascii(x) => {
+                let mut empty_vec: Vec<Vec<u8>> = Vec::with_capacity(x.len());
+                for i in x {
+                    empty_vec.push(vec![0; i.len()]);
+                }
+                Value::Ascii(empty_vec)
+            }
+            Value::Byte(x) => Value::Byte(vec![0; x.len()]),
+            Value::Short(x) => Value::Short(vec![0; x.len()]),
+            Value::Long(x) => Value::Long(vec![0; x.len()]),
+            Value::Rational(x) => Value::Rational(vec![Rational { num: 0, denom: 0 }; x.len()]),
+            Value::SByte(x) => Value::SByte(vec![0; x.len()]),
+            Value::SShort(x) => Value::SShort(vec![0; x.len()]),
+            Value::SLong(x) => Value::SLong(vec![0; x.len()]),
+            Value::SRational(x) => Value::SRational(vec![SRational { num: 0, denom: 0 }; x.len()]),
+            Value::Float(x) => Value::Float(vec![0.; x.len()]),
+            Value::Double(x) => Value::Double(vec![0.; x.len()]),
+            _ => self.field.value.clone(),
+        };
+    }
+}
+
 // Step one is taking a given image file and read out some of the super basic metadata about it
 
 #[derive(Debug, Clone, Copy)]
@@ -257,7 +282,8 @@ impl Application {
         Vec::from([
             Row::new(vec!["r", "Randomize selected Metadata"]),
             Row::new(vec!["R", "Randomize all Metadata"]),
-            Row::new(vec!["c | C", "Clear All Metadata"]),
+            Row::new(vec!["c", "Clear selected Metadata"]),
+            Row::new(vec!["C", "Clear All Metadata"]),
             Row::new(vec!["o | O", "Restore Metadata"]),
             Row::new(vec!["s | S", "Save a Copy"]),
             Row::new(vec!["t | T", "Toggle between Thumbnail and Globe"]),
@@ -439,6 +465,20 @@ impl Application {
         }
     }
 
+    pub fn clear_all_fields(&mut self) {
+        for i in 0..self.modified_fields.len() {
+            self.clear_field(i);
+        }
+    }
+
+    pub fn clear_field(&mut self, index: usize) {
+        let tag_at_index = order::EXIF_FIELDS_ORDERED.get(index).unwrap();
+        if let Some(field_in_map) = self.modified_fields.get_mut(&tag_at_index) {
+            field_in_map.clear();
+            self.status_msg = format!("Cleared {}", tag_at_index.to_string());
+        }
+    }
+
     fn sync_latitude(&mut self) {
         let (new_lat, lat_dir) = self.randomizer.random_latlong(Cardinal::North);
         for (&t, m) in self.modified_fields.iter_mut() {
@@ -474,38 +514,6 @@ impl Application {
                 _ => {}
             }
         }
-    }
-
-    pub fn clear_fields(&mut self) {
-        self.modified_fields
-            .iter_mut()
-            .map(|(_, m)| {
-                m.field.value = match m.field.value.clone() {
-                    Value::Ascii(x) => {
-                        let mut empty_vec: Vec<Vec<u8>> = Vec::with_capacity(x.len());
-                        for i in x {
-                            empty_vec.push(vec![0; i.len()]);
-                        }
-                        Value::Ascii(empty_vec)
-                    }
-                    Value::Byte(x) => Value::Byte(vec![0; x.len()]),
-                    Value::Short(x) => Value::Short(vec![0; x.len()]),
-                    Value::Long(x) => Value::Long(vec![0; x.len()]),
-                    Value::Rational(x) => {
-                        Value::Rational(vec![Rational { num: 0, denom: 0 }; x.len()])
-                    }
-                    Value::SByte(x) => Value::SByte(vec![0; x.len()]),
-                    Value::SShort(x) => Value::SShort(vec![0; x.len()]),
-                    Value::SLong(x) => Value::SLong(vec![0; x.len()]),
-                    Value::SRational(x) => {
-                        Value::SRational(vec![SRational { num: 0, denom: 0 }; x.len()])
-                    }
-                    Value::Float(x) => Value::Float(vec![0.; x.len()]),
-                    Value::Double(x) => Value::Double(vec![0.; x.len()]),
-                    _ => m.field.value.clone(),
-                }
-            })
-            .collect()
     }
 
     fn create_copy_file_name(&self) -> PathBuf {

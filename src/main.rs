@@ -72,8 +72,6 @@ fn main() -> anyhow::Result<()> {
     match app.app_mode {
         AppMode::CommandLine => {
             // Print out the Exif Data in the CLI
-            // app.clear_fields();
-            // app.save_state()?;
             for f in app.exif.fields() {
                 println!("Tag::{}", f.tag.to_string());
             }
@@ -121,9 +119,15 @@ fn main() -> anyhow::Result<()> {
                                             app.randomize_all();
                                             app.show_message("Randomized all".to_owned());
                                         }
-                                        'c' | 'C' => {
-                                            app.clear_fields();
-                                            app.show_message("Cleared Metadata".to_owned())
+                                        'c' => match table_state.selected() {
+                                            Some(index) => {
+                                                app.clear_field(index);
+                                            }
+                                            None => {}
+                                        },
+                                        'C' => {
+                                            app.clear_all_fields();
+                                            app.show_message("Cleared All Metadata".to_owned())
                                         }
                                         's' | 'S' => {
                                             // Save the state into a file copy
