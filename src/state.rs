@@ -310,7 +310,7 @@ impl Application {
             Row::new(vec!["c", "Clear selected Metadata"]),
             Row::new(vec!["C", "Clear all Metadata"]),
             Row::new(vec!["u", "Undo change"]),
-            Row::new(vec!["U", "Undo all changes \ Restore"]),
+            Row::new(vec!["U", "Undo all changes \\ Restore"]),
             Row::new(vec!["s | S", "Save a Copy"]),
             Row::new(vec!["t | T", "Toggle Thumbnail or Globe"]),
             Row::new(vec!["g | G", "Toggle Globe Visibility"]),
