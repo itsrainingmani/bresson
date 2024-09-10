@@ -1,12 +1,27 @@
 # Bresson
 
-EXIF Metadata Processing TUI (Terminal User Interface) in Rust
+Bresson is an EXIF Metadata Processing TUI (Terminal User Interface) built in Rust using the [Ratatui](https://github.com/ratatui/ratatui) immediate-mode TUI library.
 
-## TUI Mode
+Bresson was initially conceived as an exploration of terminal interfaces and immediate-mode rendering during my Winter 2' 2024 Batch at the [Recurse Center](https://recurse.com).
 
-The TUI Mode allows you to inspect & modify the metadata for a given image inside your terminal.
+## What does it do?
+
+Bresson allows you to inspect & modify the Exif metadata for a given image inside your terminal.
 
 Within TUI Mode, all of the metadata is displayed inside a table and with the appropriate units for relevant fields.
+
+If the provided image has any GPS data, an ASCII rendering of Earth will be shown with the GPS co-ordinates highlighted!
+
+There is also support for rendering the image thumbnail via [ratatui-image](https://github.com/benjajaja/ratatui-image) but this is highly dependent on what image backends are supported by your terminal. Recommended terminals are -
+
+* XTerm
+* Foot
+* kitty
+* Wezterm
+* iTerm2
+* Ghostty
+
+## Usage
 
 Here is a list of Keybinds for TUI mode -
 
@@ -14,48 +29,50 @@ Here is a list of Keybinds for TUI mode -
 | -------------- | --------------------------------------------------- |
 | `r`            | Randomize the highlighted field                     |
 | `R`            | Randomize all fields                                |
-| `c` \| `C`     | Clear all metadata                                  |
-| `o` \| `O`     | Display the original metadata for the image         |
-| `t` \| `T`     | Toggle between displaying Image Thumbnail and Globe |
+| `c`            | Clear selected metadata                             |
+| `C`            | Clear all metadata                                  |
+| `u`            | Undo change                                         |
+| `U`            | Undo all changes / Restore                          |
+| `t` \| `T`     | Toggle between displaying Thumbnail and Globe       |
 | `s` \| `S`     | Save a copy of the modified metadata                |
 | `g` \| `G`     | Toggle Globe Visibility                             |
 | `<Spc>`        | Toggle Globe Rotation                               |
-| `q` \| `<Esc>` | Exit the app                                        |
 | `?`            | Show/Dismiss Keybind Info                           |
+| `q` \| `<Esc>` | Exit the app                                        |
+
 
 ### Metadata that can be randomized
 
-- Make
-- Model
-- DateTime
-- DateTimeOriginal
-- DateTimeDigitized
-- ExposureTime
-- FNumber
-- MeteringMode
-- GPSLatitude
-- GPSLongitude
-- GPSLatitudeRef
-- GPSLongitudeRef
+- `Make`
+- `Model`
+- `DateTime`
+- `DateTimeOriginal`
+- `DateTimeDigitized`
+- `ExposureTime`
+- `FNumber`
+- `PhotographicSensitivity`
+- `MeteringMode`
+- `ColorSpace`
+- `GPSLatitude`
+- `GPSLongitude`
+- `GPSLatitudeRef`
+- `GPSLongitudeRef`
 
-## CLI Args
+## Running Bresson
 
-Defaults -
+Currently Bresson is in alpha development. To build Bresson, please clone the repository to your local environment and then running the following command -
 
-- Do not mutate the original file
-- Always write to a copy unless specified with the `mutate` flag
+```shell
+$ cargo run -- <PATH_TO_IMAGE>
+```
 
-<!-- - `-c` | `--cli` to run in command line mode -->
-
-- `-r` | `--random` to automatically randomize the exif metadata
-- (Shouldn't this be the default?)
-- `-m` | `--mutate` to mutate the original file (not recommended)
+This will build Bresson locally and then run it (in debug mode).
 
 ## Future Features
 
 - [ ] Randomizing more metadata fields
 - [ ] Editing metadata directly
-- [ ] Displaying the Thumbnail
+- [x] Displaying the Thumbnail
 - [ ] Configuration File
 - [ ] Alternate Stylesheets
 - [ ] DSL for defining modifications
