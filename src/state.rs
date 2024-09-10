@@ -75,6 +75,16 @@ impl MetadataVal {
     }
 }
 
+impl PartialEq for MetadataVal {
+    fn eq(&self, other: &Self) -> bool {
+        self.field
+            .value
+            .display_as(self.field.tag)
+            .to_string()
+            .eq(&other.field.value.display_as(self.field.tag).to_string())
+    }
+}
+
 // Step one is taking a given image file and read out some of the super basic metadata about it
 
 #[derive(Debug, Clone, Copy)]
@@ -455,7 +465,10 @@ impl Application {
                 Tag::GPSLongitude | Tag::GPSLongitudeRef => self.sync_longitude(),
                 _ => {
                     if let Some(v) = self.randomizer.randomize_tag(*tag_at_index) {
+                        let old_field = field_in_map.field.clone();
                         field_in_map.field.value = v.clone();
+                        self.ring_buffer
+                            .push_back((old_field, field_in_map.field.clone()));
                         self.show_message(format!("Randomized {}", tag_at_index.to_string()));
                     } else {
                         field_in_map.changed = false;
@@ -475,8 +488,24 @@ impl Application {
     pub fn clear_field(&mut self, index: usize) {
         let tag_at_index = order::EXIF_FIELDS_ORDERED.get(index).unwrap();
         if let Some(field_in_map) = self.modified_fields.get_mut(&tag_at_index) {
+            let old_field = field_in_map.field.clone();
             field_in_map.clear();
+            self.ring_buffer
+                .push_back((old_field, field_in_map.field.clone()));
             self.show_message(format!("Cleared {}", tag_at_index.to_string()));
+        }
+    }
+
+    pub fn undo_operation(&mut self) {
+        if let Some((old_f, new_f)) = self.ring_buffer.pop_back() {
+            if let Some(metadata_to_modify) = self.modified_fields.get_mut(&new_f.tag) {
+                metadata_to_modify.field = old_f;
+                if let Some(original_metadata) = self.original_fields.get(&new_f.tag) {
+                    if metadata_to_modify == original_metadata {
+                        metadata_to_modify.changed = false;
+                    }
+                }
+            }
         }
     }
 

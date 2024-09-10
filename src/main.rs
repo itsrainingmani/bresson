@@ -97,13 +97,14 @@ fn main() -> anyhow::Result<()> {
                             if key.kind == KeyEventKind::Press && !app.show_keybinds {
                                 match key.code {
                                     KeyCode::Char(c) => match c {
-                                        'u' | 'U' => {
+                                        'u' => app.undo_operation(),
+                                        'U' => {
                                             // Show Original Data
                                             app.modified_fields = app.original_fields.clone();
                                             if app.has_gps && !app.should_rotate {
                                                 app.transform_coordinates();
                                             }
-                                            app.show_message("Showing Original Data".to_owned());
+                                            app.show_message("Restored Original Data".to_owned());
                                         }
                                         'r' => {
                                             // Only randomize the selected element based on table state
