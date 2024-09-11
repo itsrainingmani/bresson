@@ -138,8 +138,17 @@ fn main() -> anyhow::Result<()> {
                                         }
                                         's' | 'S' => {
                                             // Save the state into a file copy
-                                            app.save_state()?;
-                                            app.show_message("Saved app state".to_owned());
+                                            app.show_message("Trying to save copy...".to_owned());
+                                            match app.save_state() {
+                                                Ok(_) => {
+                                                    app.show_message(
+                                                        "Saved app state to copy".to_owned(),
+                                                    );
+                                                }
+                                                Err(_) => app.show_message(
+                                                    "Unable to save copy :(".to_owned(),
+                                                ),
+                                            }
                                         }
                                         'g' | 'G' => {
                                             app.toggle_globe();

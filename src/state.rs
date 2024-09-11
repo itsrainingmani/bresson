@@ -1,4 +1,5 @@
 use anyhow::Result;
+use chrono::{DateTime, Utc};
 use core::f32;
 use exif::{experimental::Writer, Exif, Field, In, Rational, Reader, SRational, Tag, Value};
 use ratatui::{
@@ -604,13 +605,23 @@ impl Application {
         }
     }
 
-    fn create_copy_file_name(&self) -> PathBuf {
+    fn create_copy_file_name(&self) -> Result<PathBuf> {
         let mut copy_file_path = self.path_to_image.clone();
-        let copy_file_name = copy_file_path.file_name().expect("Valid File Name");
-        copy_file_path.set_file_name(format!("copy-{}", copy_file_name.to_str().unwrap()));
-        // println!("{}", copy_file_path.display());
+        let file_stem = copy_file_path
+            .file_stem()
+            .expect("Valid File Name")
+            .to_str()
+            .unwrap();
+        let extension = copy_file_path
+            .extension()
+            .map_or("", |ext| ext.to_str().unwrap());
+        let now: DateTime<Utc> = Utc::now();
+        let formatted_timestamp = now.format("%Y%m%d%H%M%S").to_string();
 
-        copy_file_path
+        let copy_file_name = format!("copy-{}-{}.{}", file_stem, formatted_timestamp, extension);
+        copy_file_path.set_file_name(copy_file_name);
+
+        Ok(copy_file_path)
     }
 
     pub fn save_state(&mut self) -> Result<()> {
@@ -676,7 +687,7 @@ impl Application {
         // eprintln!("{}", exif_header.len());
 
         // Create a file copy using the original name of the file
-        let copy_file_name = self.create_copy_file_name();
+        let copy_file_name = self.create_copy_file_name()?;
         let mut copy_file = std::fs::File::create(copy_file_name.clone())?;
         copy_file.write_all(&exif_header.as_slice())?;
 
