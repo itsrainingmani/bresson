@@ -550,7 +550,7 @@ impl Application {
                 }
                 Operation::RandomizeAll | Operation::ClearAll => {
                     self.modified_fields = self.original_fields.clone();
-                    Some(0)
+                    None
                 }
             }
         } else {

@@ -32,7 +32,7 @@ fn render_metadata_table(
 ) {
     // let widths = [Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)];
     let widths = Constraint::from_mins([100, 100]);
-    let exif_table = Table::new(app.process_rows(frame.size().width), widths).column_spacing(1);
+    let exif_table = Table::new(app.process_rows(frame.area().width), widths).column_spacing(1);
 
     frame.render_stateful_widget(
         exif_table
@@ -160,7 +160,7 @@ fn render_status_msg(app: &mut Application, frame: &mut Frame, area: Rect) {
 }
 
 fn render_keybind_popup(app: &mut Application, frame: &mut Frame) {
-    let pop_area = centered_rect(frame.size(), 50, 50);
+    let pop_area = centered_rect(frame.area(), 50, 50);
     let widths = [Constraint::Ratio(1, 3), Constraint::Ratio(2, 3)];
     let keybind_table = Table::new(app.keybind_rows(), widths).column_spacing(1);
     frame.render_widget(Clear, pop_area);
@@ -185,7 +185,7 @@ pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableSta
                 Constraint::Max(50),
                 Constraint::Max(5),
             ])
-            .split(frame.size());
+            .split(frame.area());
         render_metadata_table(app, frame, table_state, layout[0]);
         match app.render_state {
             RenderState::Globe => render_globe(app, frame, layout[1]),
@@ -200,7 +200,7 @@ pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableSta
                 Constraint::Max(95),
                 Constraint::Max(5),
             ])
-            .split(frame.size());
+            .split(frame.area());
         render_metadata_table(app, frame, table_state, layout[0]);
         render_status_msg(app, frame, layout[1]);
     }
@@ -213,7 +213,7 @@ pub fn view(app: &mut Application, frame: &mut Frame, table_state: &mut TableSta
 /// # Usage
 ///
 /// ```rust
-/// let rect = centered_rect(f.size(), 50, 50);
+/// let rect = centered_rect(f.area(), 50, 50);
 /// ```
 fn centered_rect(r: Rect, percent_x: u16, percent_y: u16) -> Rect {
     let popup_layout = Layout::default()
