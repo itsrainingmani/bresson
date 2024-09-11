@@ -3,7 +3,7 @@ name = "bresson"
 version = "0.1.0"
 authors = ["Mani Sundararajan"]
 edition = "2021"
-description = "EXIF Metadata Processing Tool"
+description = "EXIF Metadata Processing Tool in your Terminal"
 license = "MIT"
 keywords = ["exif", "metadata", "cli"]
 categories = ["command-line-utilities"]
@@ -11,11 +11,11 @@ categories = ["command-line-utilities"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.79"
-chrono = "0.4.31"
-crossterm = "0.27.0"
-image = ">=0.24"
+anyhow = "1"
+chrono = "0.4"
+crossterm = "0.28"
+image = "0.25"
 kamadak-exif = "0.5.5"
 rand = "0.8.5"
-ratatui = { version = "0.26.3", features = ["all-widgets"] }
-ratatui-image = { version = "1.0.0", features = ["crossterm"] }
+ratatui = { version = "0.28", features = ["all-widgets"] }
+ratatui-image = { version = "1", features = ["crossterm"] }
