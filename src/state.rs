@@ -100,12 +100,6 @@ pub enum Operation {
 // Step one is taking a given image file and read out some of the super basic metadata about it
 
 #[derive(Debug, Clone, Copy)]
-pub enum AppMode {
-    CommandLine,
-    InteractiveFile,
-}
-
-#[derive(Debug, Clone, Copy)]
 pub enum RenderState {
     Thumbnail,
     Globe,
@@ -142,6 +136,20 @@ pub struct CameraSettings {
     zoom: f32,
     alpha: f32, // Rotation along xy-axis
     beta: f32,  // Rotation along z-axis
+    pub globe_rot_speed: f32,
+    pub cam_rot_speed: f32,
+}
+
+impl Default for CameraSettings {
+    fn default() -> Self {
+        Self {
+            zoom: 1.5,
+            alpha: 0.,
+            beta: 0.,
+            globe_rot_speed: 0.0005,
+            cam_rot_speed: 0.0005,
+        }
+    }
 }
 
 pub struct Application {
@@ -159,7 +167,6 @@ pub struct Application {
     pub status_msg: String,
 
     pub globe: Globe,
-    pub app_mode: AppMode,
     pub has_gps: bool,
     pub gps_info: GPSInfo,
 
@@ -173,7 +180,6 @@ impl Application {
     pub fn new(
         path_to_image: &Path,
         g: Globe,
-        app_mode: AppMode,
         tx_worker: Sender<(Box<dyn StatefulProtocol>, Resize, Rect)>,
     ) -> Result<Self> {
         let file = std::fs::File::open(path_to_image)?;
@@ -290,14 +296,9 @@ impl Application {
             render_state: RenderState::Globe,
             status_msg: String::new(),
             globe: g,
-            app_mode,
             has_gps,
             gps_info,
-            camera_settings: CameraSettings {
-                zoom: 1.5,
-                alpha: 0.,
-                beta: 0.,
-            },
+            camera_settings: CameraSettings::default(),
             show_keybinds: false,
             should_rotate: false || !has_gps,
             show_mini: true,
@@ -400,10 +401,10 @@ impl Application {
     }
 
     pub fn rotate_globe(&mut self) {
-        let globe_rot_speed = 1. / 1000.;
-        let cam_rot_speed = 1. / 1000.;
-        self.globe.angle += globe_rot_speed;
-        self.camera_settings.alpha += cam_rot_speed + (globe_rot_speed / 2.);
+        self.globe.angle += self.camera_settings.globe_rot_speed;
+
+        self.camera_settings.alpha +=
+            self.camera_settings.cam_rot_speed + (self.camera_settings.globe_rot_speed / 2.);
     }
 
     pub fn toggle_globe(&mut self) {
@@ -450,6 +451,8 @@ impl Application {
             zoom: 1.45,
             alpha: new_longitude,
             beta: new_latitude,
+            globe_rot_speed: 0.0005,
+            cam_rot_speed: 0.0005,
         };
 
         self.globe.camera.update(1.45, new_longitude, new_latitude);
@@ -777,5 +780,13 @@ impl Application {
             RenderState::Globe => self.render_state = RenderState::Thumbnail,
             RenderState::Thumbnail => self.render_state = RenderState::Globe,
         }
+    }
+
+    pub fn increase_rotation_speed(&mut self) {
+        self.camera_settings.globe_rot_speed += 0.0005;
+    }
+
+    pub fn decrease_rotation_speed(&mut self) {
+        self.camera_settings.globe_rot_speed -= 0.0005;
     }
 }
