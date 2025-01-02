@@ -10,6 +10,7 @@ use ratatui::{
 use ratatui_image::{picker::Picker, protocol::StatefulProtocol, thread::ThreadProtocol, Resize};
 use std::{
     collections::{HashMap, VecDeque},
+    fmt::Display,
     io::{self, Read, Write},
     path::{Path, PathBuf},
     sync::mpsc::Sender,
@@ -113,6 +114,21 @@ pub enum Cardinal {
     South,
 }
 
+impl Display for Cardinal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Cardinal::North => "N",
+                Cardinal::East => "E",
+                Cardinal::West => "W",
+                Cardinal::South => "S",
+            }
+        )
+    }
+}
+
 #[derive(Debug)]
 pub struct GPSInfo {
     latitude: f32,
@@ -124,11 +140,37 @@ pub struct GPSInfo {
 impl Default for GPSInfo {
     fn default() -> Self {
         Self {
-            latitude: Default::default(),
+            latitude: 0.,
             lat_direction: Cardinal::North,
-            longitude: Default::default(),
+            longitude: 0.,
             long_direction: Cardinal::East,
         }
+    }
+}
+
+impl Display for GPSInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let lat_degrees = self.latitude.trunc() as i32;
+        let lat_minutes_float = self.latitude.fract() * 60.0;
+        let lat_minutes = lat_minutes_float.trunc() as i32;
+        let lat_seconds = (lat_minutes_float.fract() * 60.0).round() as f64;
+
+        let long_degrees = self.longitude.trunc() as i32;
+        let long_minutes_float = self.longitude.fract() * 60.0;
+        let long_minutes = long_minutes_float.trunc() as i32;
+        let long_seconds = (long_minutes_float.fract() * 60.0).round() as f64;
+        write!(
+            f,
+            "Location: {}°{}\'{}\"{}, {}°{}\'{}\"{}",
+            lat_degrees,
+            lat_minutes,
+            lat_seconds,
+            self.lat_direction,
+            long_degrees,
+            long_minutes,
+            long_seconds,
+            self.long_direction
+        )
     }
 }
 
@@ -212,77 +254,7 @@ impl Application {
             }
         }
 
-        let gps_info = if has_gps {
-            let lat: f32 = match exif.get_field(Tag::GPSLatitude, In::PRIMARY) {
-                Some(l) => match l.value {
-                    Value::Rational(ref v) if !v.is_empty() => {
-                        let lat_internals = vec![
-                            (v[0].num as f32 / v[0].denom as f32),
-                            (v[1].num as f32 / v[1].denom as f32) / 60.,
-                            (v[2].num as f32 / v[2].denom as f32) / (60. * 100.),
-                        ];
-                        lat_internals
-                            .iter()
-                            .fold(0., |sum: f32, x| if x.is_nan() { sum } else { sum + x })
-                    }
-                    _ => 0.,
-                },
-                None => 0.,
-            };
-            let long: f32 = match exif.get_field(Tag::GPSLongitude, In::PRIMARY) {
-                Some(l) => match l.value {
-                    Value::Rational(ref v) if !v.is_empty() => {
-                        let long_internals = vec![
-                            (v[0].num as f32 / v[0].denom as f32),
-                            (v[1].num as f32 / v[1].denom as f32) / 60.,
-                            (v[2].num as f32 / v[2].denom as f32) / (60. * 100.),
-                        ];
-                        long_internals
-                            .iter()
-                            .fold(0., |sum: f32, x| if x.is_nan() { sum } else { sum + x })
-                    }
-                    _ => 0.,
-                },
-                None => 0.,
-            };
-            let lat_dir = match exif.get_field(Tag::GPSLatitudeRef, In::PRIMARY) {
-                Some(l) => {
-                    let display_value = &l.display_value().to_string();
-                    let str_val = display_value.as_str();
-                    match str_val {
-                        "N" => Cardinal::North,
-                        "S" => Cardinal::South,
-                        _ => Cardinal::North,
-                    }
-                }
-                None => Cardinal::North,
-            };
-            let long_dir = match exif.get_field(Tag::GPSLongitudeRef, In::PRIMARY) {
-                Some(l) => {
-                    let display_value = &l.display_value().to_string();
-                    let str_val = display_value.as_str();
-                    match str_val {
-                        "E" => Cardinal::East,
-                        "W" => Cardinal::West,
-                        _ => Cardinal::North,
-                    }
-                }
-                None => Cardinal::East,
-            };
-
-            if lat == 0. && long == 0. {
-                has_gps = false
-            }
-            GPSInfo {
-                latitude: lat,
-                lat_direction: lat_dir,
-                longitude: long,
-                long_direction: long_dir,
-            }
-        } else {
-            has_gps = false;
-            GPSInfo::default()
-        };
+        let gps_info = GPSInfo::default();
 
         Ok(Self {
             path_to_image: path_to_image.to_path_buf(),
@@ -427,6 +399,76 @@ impl Application {
             self.camera_settings.alpha,
             self.camera_settings.beta,
         );
+    }
+
+    pub fn update_gps(&mut self) {
+        let lat: f32 = match self.modified_fields.get(&Tag::GPSLatitude) {
+            Some(l) => match l.field.value {
+                Value::Rational(ref v) if !v.is_empty() => {
+                    let lat_internals = vec![
+                        (v[0].num as f32 / v[0].denom as f32),
+                        (v[1].num as f32 / v[1].denom as f32) / 60.,
+                        (v[2].num as f32 / v[2].denom as f32) / (60. * 100.),
+                    ];
+                    lat_internals
+                        .iter()
+                        .fold(0., |sum: f32, x| if x.is_nan() { sum } else { sum + x })
+                }
+                _ => 0.,
+            },
+            None => 0.,
+        };
+        let long: f32 = match self.modified_fields.get(&Tag::GPSLongitude) {
+            Some(l) => match l.field.value {
+                Value::Rational(ref v) if !v.is_empty() => {
+                    let long_internals = vec![
+                        (v[0].num as f32 / v[0].denom as f32),
+                        (v[1].num as f32 / v[1].denom as f32) / 60.,
+                        (v[2].num as f32 / v[2].denom as f32) / (60. * 100.),
+                    ];
+                    long_internals
+                        .iter()
+                        .fold(0., |sum: f32, x| if x.is_nan() { sum } else { sum + x })
+                }
+                _ => 0.,
+            },
+            None => 0.,
+        };
+        let lat_dir = match self.modified_fields.get(&Tag::GPSLatitudeRef) {
+            Some(l) => {
+                let display_value = &l.field.display_value().to_string();
+                let str_val = display_value.as_str();
+                match str_val {
+                    "N" => Cardinal::North,
+                    "S" => Cardinal::South,
+                    _ => Cardinal::North,
+                }
+            }
+            None => Cardinal::North,
+        };
+        let long_dir = match self.modified_fields.get(&Tag::GPSLongitudeRef) {
+            Some(l) => {
+                let display_value = &l.field.display_value().to_string();
+                let str_val = display_value.as_str();
+                match str_val {
+                    "E" => Cardinal::East,
+                    "W" => Cardinal::West,
+                    _ => Cardinal::North,
+                }
+            }
+            None => Cardinal::East,
+        };
+
+        if lat == 0. && long == 0. {
+            self.has_gps = false
+        }
+
+        self.gps_info = GPSInfo {
+            latitude: lat,
+            lat_direction: lat_dir,
+            longitude: long,
+            long_direction: long_dir,
+        }
     }
 
     pub fn transform_coordinates(&mut self) {
@@ -577,6 +619,8 @@ impl Application {
                 _ => {}
             }
         }
+        self.update_gps();
+        self.transform_coordinates();
     }
 
     fn sync_longitude(&mut self) {
@@ -594,6 +638,8 @@ impl Application {
                 _ => {}
             }
         }
+        self.update_gps();
+        self.transform_coordinates();
     }
 
     fn sync_date_fields(&mut self, new_dt: String) {

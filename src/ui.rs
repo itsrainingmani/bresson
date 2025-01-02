@@ -87,6 +87,10 @@ fn render_globe(app: &mut Application, frame: &mut Frame, area: Rect) {
                 globe_canvas.clear();
                 app.globe.render_sphere(&mut globe_canvas);
                 let (size_x, size_y) = globe_canvas.get_size();
+
+                // Print GPS Coordinates in Bottom-Left Corner
+                ctx.print(0 as f64, 0 as f64, app.gps_info.to_string());
+
                 // default character size is 4 by 8
                 for i in 0..size_y {
                     for j in 0..size_x {

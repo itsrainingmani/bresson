@@ -41,6 +41,7 @@ fn main() -> anyhow::Result<()> {
         }
     });
     let mut app = Application::new(image_file, globe, tx_worker)?;
+    app.update_gps();
 
     // Poll events in background thread to demonstrate polling terminal events and redraw events
     // concurrently. It's not required to do it this way - the "redraw event" from the channel
