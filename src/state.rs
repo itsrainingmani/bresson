@@ -619,8 +619,6 @@ impl Application {
                 _ => {}
             }
         }
-        self.update_gps();
-        self.transform_coordinates();
     }
 
     fn sync_longitude(&mut self) {
@@ -638,8 +636,6 @@ impl Application {
                 _ => {}
             }
         }
-        self.update_gps();
-        self.transform_coordinates();
     }
 
     fn sync_date_fields(&mut self, new_dt: String) {

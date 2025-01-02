@@ -62,14 +62,12 @@ fn main() -> anyhow::Result<()> {
     let mut terminal = tui::init_terminal()?;
     terminal.clear()?;
 
-    if app.has_gps {
-        // Go to the coordinates extracted from the input
-        app.transform_coordinates();
-    }
-
     app.show_message(format!("Opened {:?}", app.path_to_image.clone()));
 
     loop {
+        app.update_gps();
+        app.transform_coordinates();
+
         terminal.draw(|frame| view(&mut app, frame, &mut table_state))?;
         if let Ok(ev) = rec_main.try_recv() {
             match ev {
